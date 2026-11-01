@@ -327,11 +327,13 @@ static std::vector<PendingItem> g_itemQueue;
 static double g_nextItem = 0, g_nextBatch = 0;
 static int g_dupeArmed = 0;
 
-static constexpr int kDances = 8;
+static constexpr int kDances = 17;
 static bool g_danceSel[kDances];
 static int g_dance = -1;            // the picked dance, -1 = none
 static bool f_fly, f_fastFly, f_platforms, f_lowGravity, f_rainbow, f_fps, f_clock, f_rightHand,
             f_notify = true;
+static bool f_superJump, f_slowFall, f_airJump, f_dash, f_hover, f_bouncy, f_speedText, f_heightText;
+static float g_menuSize = 1.0f;
 static Ref g_player, g_rigidbody, g_leftHand, g_rightHand, g_head;
 static Vector3 g_spot;
 static bool g_haveSpot = false;
@@ -354,6 +356,12 @@ static void ArmCircle();
 static void ArmSquare();
 static void ArmTriangle();
 static bool LeftHandItem();
+static void NextMenuSize();
+static void NextFunnySpeed();
+static void LaunchUp();
+static void StopAction();
+static bool GetVel(Vector3 &v);
+static bool BodyPos(Vector3 &out);
 
 enum Cat { MAIN, MOVEMENT, RIG, ITEMS, SETTINGS, ENABLED, NCAT };
 static const char *kCatName[NCAT] = {"Main", "Movement Mods", "Rig Mods", "Items", "Settings", "Enabled Mods"};
@@ -386,6 +394,14 @@ static Item g_items[] = {
     {MOVEMENT, "Speed Boost", TOGGLE, MAIN, &f_speedBoost, ApplySpeedBoost},
     {MOVEMENT, "No Gravity", TOGGLE, MAIN, &f_noGravity, ApplyGravity},
     {MOVEMENT, "Low Gravity", TOGGLE, MAIN, &f_lowGravity},
+    {MOVEMENT, "Super Jump", TOGGLE, MAIN, &f_superJump, ApplySpeedBoost},
+    {MOVEMENT, "Slow Fall", TOGGLE, MAIN, &f_slowFall},
+    {MOVEMENT, "Air Jump", TOGGLE, MAIN, &f_airJump},
+    {MOVEMENT, "Dash", TOGGLE, MAIN, &f_dash},
+    {MOVEMENT, "Hover", TOGGLE, MAIN, &f_hover},
+    {MOVEMENT, "Bouncy", TOGGLE, MAIN, &f_bouncy},
+    {MOVEMENT, "Launch Up", ACTION, MAIN, nullptr, LaunchUp},
+    {MOVEMENT, "Stop Moving", ACTION, MAIN, nullptr, StopAction},
     {MOVEMENT, "Save Spot", ACTION, MAIN, nullptr, SaveSpot},
     {MOVEMENT, "Go To Spot", ACTION, MAIN, nullptr, GoToSpot},
 
@@ -399,6 +415,16 @@ static Item g_items[] = {
     {RIG, "Jumping Jacks", TOGGLE, MAIN, &g_danceSel[5], DancePicked},
     {RIG, "Spaz", TOGGLE, MAIN, &g_danceSel[6], DancePicked},
     {RIG, "Beyblade", TOGGLE, MAIN, &g_danceSel[7], DancePicked},
+    {RIG, "Superman", TOGGLE, MAIN, &g_danceSel[8], DancePicked},
+    {RIG, "Flap", TOGGLE, MAIN, &g_danceSel[9], DancePicked},
+    {RIG, "Boxing", TOGGLE, MAIN, &g_danceSel[10], DancePicked},
+    {RIG, "Clap", TOGGLE, MAIN, &g_danceSel[11], DancePicked},
+    {RIG, "Hands Up", TOGGLE, MAIN, &g_danceSel[12], DancePicked},
+    {RIG, "Sprinkler", TOGGLE, MAIN, &g_danceSel[13], DancePicked},
+    {RIG, "Funny Run", TOGGLE, MAIN, &g_danceSel[14], DancePicked},
+    {RIG, "Funny Run Speed", ACTION, MAIN, nullptr, NextFunnySpeed},
+    {RIG, "Spin", TOGGLE, MAIN, &g_danceSel[15], DancePicked},
+    {RIG, "Upside Down", TOGGLE, MAIN, &g_danceSel[16], DancePicked},
 
     {ITEMS, "Exit Items", OPEN, MAIN},
     {ITEMS, "Spawn Item Gun", TOGGLE, MAIN, &f_itemGun},
@@ -418,6 +444,9 @@ static Item g_items[] = {
     {SETTINGS, "Rainbow Menu", TOGGLE, MAIN, &f_rainbow},
     {SETTINGS, "Show FPS", TOGGLE, MAIN, &f_fps},
     {SETTINGS, "Show Clock", TOGGLE, MAIN, &f_clock},
+    {SETTINGS, "Show Speed", TOGGLE, MAIN, &f_speedText},
+    {SETTINGS, "Show Height", TOGGLE, MAIN, &f_heightText},
+    {SETTINGS, "Menu Size", ACTION, MAIN, nullptr, NextMenuSize},
     {SETTINGS, "Notifications", TOGGLE, MAIN, &f_notify},
     {SETTINGS, "Turn Everything Off", ACTION, MAIN, nullptr, AllOff},
 };
@@ -441,12 +470,33 @@ static const struct { const char *label, *tip; } kTips[] = {
     {"Speed Boost", "Faster and higher jumps."},
     {"No Gravity", "Turns your gravity off."},
     {"Low Gravity", "Jump higher, fall slower."},
+    {"Super Jump", "A much higher jump. Overrides Speed Boost while on."},
+    {"Slow Fall", "You never fall faster than a gentle glide."},
+    {"Air Jump", "Press Y in the air to jump again."},
+    {"Dash", "Press X to dash the way you look."},
+    {"Hover", "Hold left trigger to hang in the air (not with a dance picked)."},
+    {"Bouncy", "Hard landings bounce you back up."},
+    {"Launch Up", "Shoots you straight up."},
+    {"Stop Moving", "Stops all your movement right now."},
     {"Save Spot", "Remembers where you are."},
     {"Go To Spot", "Teleports you to your saved spot."},
-    {"Change Menu Theme", "Fire, Orange, Blue, Green, Purple, Dark."},
+    {"Change Menu Theme", "Fire, Orange, Blue, Green, Purple, Dark, Pink, Red, Gold, Cyan, Mint, Sunset."},
     {"Rainbow Menu", "The menu cycles through colors."},
     {"Show FPS", "Frames per second in the title."},
     {"Show Clock", "The time in the title."},
+    {"Show Speed", "Your speed in the title."},
+    {"Show Height", "How high you are, in the title."},
+    {"Menu Size", "Cycles the menu size: normal, big, huge, small."},
+    {"Superman", "Both hands out in front. Hold left trigger."},
+    {"Flap", "Arms flap like wings. Hold left trigger."},
+    {"Boxing", "Punches, one hand after the other. Hold left trigger."},
+    {"Clap", "Hands clap in front of you. Hold left trigger."},
+    {"Hands Up", "Both arms up and swaying. Hold left trigger."},
+    {"Sprinkler", "One hand sweeps out and back. Hold left trigger."},
+    {"Funny Run", "Arms pump like a sprint. Hold left trigger."},
+    {"Funny Run Speed", "Slow, normal or fast arm pumping."},
+    {"Spin", "Both hands circle in front of you. Hold left trigger."},
+    {"Upside Down", "Hands hang low like you are flipped. Hold left trigger."},
     {"Rig Mods", "Pick a dance, then hold left trigger. Everyone sees it."},
     {"Items", "Spawn copies of the item in your left hand. Everyone sees them."},
     {"Spawn Item Gun", "Hold an item in your left hand. Right grip aims, trigger spawns it."},
@@ -485,6 +535,12 @@ static const Theme kThemes[] = {
     {"Green",  Color(0.30f, 0.85f, 0.30f, 1), Color(0.15f, 0.65f, 0.20f, 1), Color(0.12f, 0.45f, 0.12f, 1), Color(0.05f, 0.22f, 0.05f, 1), Color(0.75f, 1.0f, 0.75f, 1)},
     {"Purple", Color(0.65f, 0.30f, 1.0f, 1), Color(0.45f, 0.15f, 0.85f, 1), Color(0.38f, 0.15f, 0.60f, 1), Color(0.18f, 0.06f, 0.30f, 1), Color(0.88f, 0.75f, 1.0f, 1)},
     {"Dark",   Color(0.12f, 0.12f, 0.14f, 1), Color(0.05f, 0.05f, 0.06f, 1), Color(0.22f, 0.22f, 0.25f, 1), Color(0.45f, 0.45f, 0.50f, 1), Color(0.85f, 0.85f, 0.90f, 1)},
+    {"Pink",   Color(1.0f, 0.40f, 0.70f, 1), Color(0.90f, 0.20f, 0.55f, 1), Color(0.60f, 0.15f, 0.38f, 1), Color(0.30f, 0.05f, 0.18f, 1), Color(1.0f, 0.80f, 0.90f, 1)},
+    {"Red",    Color(0.85f, 0.10f, 0.10f, 1), Color(0.60f, 0.05f, 0.05f, 1), Color(0.45f, 0.05f, 0.05f, 1), Color(0.22f, 0.02f, 0.02f, 1), Color(1.0f, 0.70f, 0.70f, 1)},
+    {"Gold",   Color(1.0f, 0.82f, 0.20f, 1), Color(0.85f, 0.65f, 0.05f, 1), Color(0.60f, 0.45f, 0.05f, 1), Color(0.30f, 0.22f, 0.02f, 1), Color(1.0f, 0.95f, 0.70f, 1)},
+    {"Cyan",   Color(0.10f, 0.85f, 0.90f, 1), Color(0.05f, 0.60f, 0.75f, 1), Color(0.05f, 0.40f, 0.50f, 1), Color(0.02f, 0.20f, 0.26f, 1), Color(0.75f, 1.0f, 1.0f, 1)},
+    {"Mint",   Color(0.50f, 1.0f, 0.80f, 1), Color(0.30f, 0.85f, 0.65f, 1), Color(0.18f, 0.55f, 0.42f, 1), Color(0.08f, 0.28f, 0.21f, 1), Color(0.85f, 1.0f, 0.95f, 1)},
+    {"Sunset", Color(1.0f, 0.35f, 0.35f, 1), Color(0.60f, 0.25f, 0.85f, 1), Color(0.50f, 0.15f, 0.40f, 1), Color(0.25f, 0.07f, 0.22f, 1), Color(1.0f, 0.80f, 0.60f, 1)},
 };
 static constexpr int kThemeCount = sizeof(kThemes) / sizeof(kThemes[0]);
 static int g_theme = 0;
@@ -749,6 +805,14 @@ static void UpdateTitle() {
         localtime_r(&now, &lt);
         n += snprintf(buf + n, sizeof buf - n, "<size=16>  %d:%02d</size>", lt.tm_hour % 12 ? lt.tm_hour % 12 : 12, lt.tm_min);
     }
+    if (f_speedText) {
+        Vector3 v;
+        if (GetVel(v)) n += snprintf(buf + n, sizeof buf - n, "<size=16>  %.1f m/s</size>", sqrtf(v.x * v.x + v.z * v.z));
+    }
+    if (f_heightText) {
+        Vector3 b;
+        if (BodyPos(b)) n += snprintf(buf + n, sizeof buf - n, "<size=16>  %.1f m</size>", b.y);
+    }
     SetText(g_title, buf);
 }
 
@@ -855,7 +919,7 @@ static void AnimateMenu() {
     float open = (float)(g_time - g_openTime) / 0.15f;     // pop open like ii's menu
     if (open <= 1.05f && Alive(g_menu.get())) {
         float k = open >= 1 ? 1 : 1 - (1 - open) * (1 - open);
-        G.trSetLocalScale[Tr(g_menu.get())](Vector3(k, k, k));
+        G.trSetLocalScale[Tr(g_menu.get())](Vector3(k * g_menuSize, k * g_menuSize, k * g_menuSize));
     }
     if (g_flashRow != -2 && g_time >= g_flashUntil) { g_flashRow = -2; g_dirty = true; }
     float t = 0.5f + 0.5f * sinf((float)g_time * 2.0f);
@@ -915,6 +979,20 @@ static void GoToSpot() {
 static const float kIronSpeeds[] = {15, 12, 8, 4};
 static int g_ironSpeed = 0;
 static void NextIronSpeed() { g_ironSpeed = (g_ironSpeed + 1) % 4; Notify("Iron Man speed: %d", (int)kIronSpeeds[g_ironSpeed]); }
+static void NextMenuSize() {
+    static const float kSizes[] = {1.0f, 1.25f, 1.5f, 0.75f};
+    static const char *kNames[] = {"normal", "big", "huge", "small"};
+    static int i = 0;
+    i = (i + 1) % 4;
+    g_menuSize = kSizes[i];
+    if (Alive(g_menu.get())) G.trSetLocalScale[Tr(g_menu.get())](Vector3(g_menuSize, g_menuSize, g_menuSize));
+    Notify("Menu size: %s", kNames[i]);
+}
+static void LaunchUp() {
+    Vector3 v;
+    if (GetVel(v)) { v.y = 14.0f; SetVel(v); Notify("Launch!"); }
+}
+static void StopAction() { StopMoving(); Notify("Stopped"); }
 static void NextTheme() { g_theme = (g_theme + 1) % kThemeCount; Notify("Theme: %s", T().name); }
 static void AllOff() {
     for (auto &it : g_items) if (it.kind == TOGGLE && it.flag != &f_notify) *it.flag = false;   // ticks undo each mod
@@ -1011,20 +1089,54 @@ static void IronManTick(const Buttons &in, float dt) {
 
 // Speed Boost and No Gravity change your own player; turning them off puts the old
 // values back. Checked every frame so they also come back after a room change.
+// More local movement mods. They only change your own velocity, like Fly and Low Gravity.
+static float g_lastVy = 0;
+static bool g_prevX = false, g_prevY = false;
+static double g_nextAirJump = 0, g_nextDash = 0;
+static void MoreMovementTick(const Buttons &in) {
+    bool any = f_slowFall || f_airJump || f_dash || f_hover || f_bouncy;
+    bool x = in.x, y = in.y;
+    bool xEdge = x && !g_prevX, yEdge = y && !g_prevY;
+    g_prevX = x; g_prevY = y;
+    Vector3 v;
+    if (!any || !GetVel(v)) { g_lastVy = 0; return; }
+    Il2CppObject *head = g_head.get(), *player = g_player.get();
+    if (f_hover && in.ltrig && g_dance < 0) {          // hang in the air
+        SetVel(Vector3(0, 0, 0));
+        if (player && G.plNoGravityFor.IsValid()) G.plNoGravityFor[player](0.25f);
+        g_lastVy = 0;
+        return;
+    }
+    if (f_airJump && yEdge && g_time >= g_nextAirJump) { g_nextAirJump = g_time + 0.35; v.y = 6.5f; SetVel(v); }
+    if (f_dash && xEdge && head && !(f_ironMan && in.a) && g_time >= g_nextDash) {
+        g_nextDash = g_time + 0.8;
+        Vector3 f = Flat(G.trGetForward[head]());
+        v.x += f.x * 12.0f; v.z += f.z * 12.0f;
+        SetVel(v);
+    }
+    if (f_slowFall && !f_noGravity && v.y < -2.5f) { v.y = -2.5f; SetVel(v); }       // glide down gently
+    if (f_bouncy && g_lastVy < -4.0f && v.y > g_lastVy + 3.0f) { v.y = -g_lastVy * 0.8f; SetVel(v); }   // landed hard
+    g_lastVy = v.y;
+}
 static float g_oldJumpSpeed = 0, g_oldJumpMultiplier = 0;
 static Il2CppObject *g_boosted = nullptr;      // which player has the boost (compared only)
 static bool g_gravityOff = false;
 
 static void ApplySpeedBoost() {
+    // Speed Boost and Super Jump both change your jump numbers. Your own values are saved the
+    // first time either turns on and put back when both are off.
     Il2CppObject *player = g_player.get();
     bool ok = G.maxJumpSpeed.IsValid() && G.jumpMultiplier.IsValid();
-    if (f_speedBoost && ok && player && g_boosted != player) {
-        g_oldJumpSpeed = G.maxJumpSpeed[player]();
-        g_oldJumpMultiplier = G.jumpMultiplier[player]();
-        G.maxJumpSpeed[player] = 9.0f;
-        G.jumpMultiplier[player] = 1.5f;
-        g_boosted = player;
-    } else if (!f_speedBoost && g_boosted) {
+    bool want = f_speedBoost || f_superJump;
+    if (want && ok && player) {
+        if (g_boosted != player) {
+            g_oldJumpSpeed = G.maxJumpSpeed[player]();
+            g_oldJumpMultiplier = G.jumpMultiplier[player]();
+            g_boosted = player;
+        }
+        G.maxJumpSpeed[player] = f_superJump ? 14.0f : 9.0f;
+        G.jumpMultiplier[player] = f_superJump ? 3.0f : 1.5f;
+    } else if (!want && g_boosted) {
         if (ok && player == g_boosted) {
             G.maxJumpSpeed[player] = g_oldJumpSpeed;
             G.jumpMultiplier[player] = g_oldJumpMultiplier;
@@ -1176,6 +1288,15 @@ static Vector3 Flat(Vector3 v) {                      // v without its up/down p
 
 // The dance buttons work like radio buttons: picking one turns the others off,
 // pressing the picked one again turns dancing off.
+static float g_funnySpeed = 9.0f;
+static void NextFunnySpeed() {
+    static int i = 1;
+    static const float kS[] = {6.0f, 9.0f, 13.0f};
+    static const char *kN[] = {"slow", "normal", "fast"};
+    i = (i + 1) % 3;
+    g_funnySpeed = kS[i];
+    Notify("Funny Run: %s", kN[i]);
+}
 static void DancePicked() {
     int picked = -1;
     for (int i = 0; i < kDances; i++) if (g_danceSel[i] && i != g_dance) picked = i;
@@ -1258,9 +1379,59 @@ static void DanceTick(const Buttons &in, float dt) {
         R = shoulder + f * 0.35f + r * 0.2f + Vector3(Rand01() - 0.5f, Rand01() - 0.5f, Rand01() - 0.5f) * 0.3f;
         L = shoulder + f * 0.35f - r * 0.2f + Vector3(Rand01() - 0.5f, Rand01() - 0.5f, Rand01() - 0.5f) * 0.3f;
         break;
-    default:  // Beyblade: hands spin fast around your waist
+    case 7:   // Beyblade: hands spin fast around your waist
         R = shoulder - up * 0.3f + r * (0.5f * cosf(t * 20)) + f * (0.5f * sinf(t * 20));
         L = shoulder - up * 0.3f - r * (0.5f * cosf(t * 20)) - f * (0.5f * sinf(t * 20));
+        break;
+    case 8:   // Superman: both hands stretched out in front of you
+        R = shoulder + f * 0.65f + r * 0.1f + up * 0.3f;
+        L = shoulder + f * 0.65f - r * 0.1f + up * 0.3f;
+        break;
+    case 9:   // Flap: arms out to the sides, flapping like wings
+        R = shoulder + r * 0.6f + up * (0.45f * sinf(t * 9));
+        L = shoulder - r * 0.6f + up * (0.45f * sinf(t * 9));
+        break;
+    case 10: {  // Boxing: punches one after the other
+        float p = sinf(t * 7);
+        R = shoulder + f * (0.25f + 0.4f * fmaxf(0.0f, p)) + r * 0.15f;
+        L = shoulder + f * (0.25f + 0.4f * fmaxf(0.0f, -p)) - r * 0.15f;
+        break;
+    }
+    case 11: {  // Clap: hands meet in front of you
+        float p = 0.5f + 0.5f * cosf(t * 9);
+        R = shoulder + f * 0.35f + r * (0.04f + 0.3f * p);
+        L = shoulder + f * 0.35f - r * (0.04f + 0.3f * p);
+        break;
+    }
+    case 12:  // Hands Up: both arms over your head, swaying
+        R = shoulder + r * (0.25f + 0.05f * s) + up * 0.65f;
+        L = shoulder - r * (0.25f + 0.05f * s) + up * 0.65f;
+        break;
+    case 13: {  // Sprinkler: one hand behind your head, the other sweeps out and back
+        float a = sinf(t * 3) * 0.9f;
+        R = shoulder + r * (0.55f * cosf(a)) + f * (0.55f * sinf(a)) + up * 0.05f;
+        L = shoulder + up * 0.4f - f * 0.1f - r * 0.1f;
+        break;
+    }
+    case 14: {  // Funny Run: arms pump front and back like a sprint
+        float p = t * g_funnySpeed;
+        R = shoulder + f * (0.4f * sinf(p)) + r * 0.2f + up * (-0.1f + 0.2f * cosf(p));
+        L = shoulder - f * (0.4f * sinf(p)) - r * 0.2f + up * (-0.1f - 0.2f * cosf(p));
+        break;
+    }
+    case 15: {  // Spin: both hands circle together in front of you
+        float p = t * 7;
+        Vector3 c = shoulder + f * 0.4f + up * 0.05f;
+        R = c + r * (0.3f * cosf(p)) + up * (0.3f * sinf(p)) + r * 0.05f;
+        L = c + r * (0.3f * cosf(p)) + up * (0.3f * sinf(p)) - r * 0.05f;
+        break;
+    }
+    case 16:  // Upside Down: hands hang low and swing, like you are flipped
+        R = shoulder + r * 0.25f + up * (-0.55f + 0.05f * s) + f * 0.1f;
+        L = shoulder - r * 0.25f + up * (-0.55f - 0.05f * s) + f * 0.1f;
+        break;
+    default:
+        R = L = shoulder;
         break;
     }
     // Keep each hand within arm's reach of its shoulder, then glide there instead of
@@ -1517,6 +1688,7 @@ static void OnUpdate(float dt) {
     if (g_notifyUntil > 0 && g_time >= g_notifyUntil) { Show(g_notifyGo, false); g_notifyUntil = 0; }
     FlyTick(in, dt);
     LowGravityTick(in, dt);
+    MoreMovementTick(in);
     PlatformFor(in.lgrip, g_leftPlatform, g_leftHand);
     PlatformFor(in.rgrip, g_rightPlatform, g_rightHand);
     VelocityFlyTick(in);
