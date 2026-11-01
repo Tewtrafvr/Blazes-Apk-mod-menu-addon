@@ -1,4 +1,4 @@
-// t3wtr4fvr: the Blaze starter menu with a round panel (a disc instead of a rectangle).
+// t3wtr4fvr: the Blaze starter menu with a rounded-corner panel (a rectangle with round sides).
 // Based on the starter menu: a hand menu in the style of ii's Stupid Menu (Gorilla Tag).
 // The layout idea comes from ii's menu; the code is new.
 //   Hold Y (left hand)      -> menu on your left hand, tipped like ii's; turn your palm to you
@@ -496,11 +496,11 @@ static const Theme &T() { return kThemes[g_theme]; }
 // on a "board" object: +x goes across, +y goes up, the player looks at it from -z.
 static constexpr int kRows = 8;                                   // buttons per page
 static const float kBoardW = 0.30f, kBoardH = 0.3825f, kBtnW = 0.27f, kBtnH = 0.0306f;
-static const float kDisc = 0.60f;                                  // diameter of the round panel
 static const float kTitleY = 0.235f, kSideX = 0.2f, kSideW = 0.06f, kSideH = 0.344f;
 static float RowY(int r) { return 0.13f - r * 0.04f; }
 
 static Ref g_menu, g_board, g_bg, g_outline, g_pointer, g_title, g_titleBar;
+static Ref g_bgEx[6], g_outEx[6];                  // the other pieces of the rounded panel
 static Ref g_rowCube[kRows], g_rowLabel[kRows], g_rowText[kRows];
 static Ref g_prev, g_next, g_notifyGo, g_notifyText, g_tipText, g_leftPlatform, g_rightPlatform;
 static double g_openTime = 0, g_flashUntil = 0;
@@ -590,6 +590,25 @@ static Il2CppObject *Disc(Il2CppObject *parentT, Color c, Vector3 pos, float w, 
     return o;
 }
 
+// A rectangle with round corners, built from 3 boxes and 4 discs (cylinders on their side).
+// w x h is the size and rad the corner radius. `main` gets the middle box and the six other
+// pieces go into extra[0..5], so SetPanelColor() can paint all of them.
+static void RoundRect(Il2CppObject *parentT, Color c, Vector3 center, float w, float h, float rad, float thick,
+                      Ref &main, Ref *extra) {
+    float ix = w * 0.5f - rad, iy = h * 0.5f - rad;      // where the four corner circles sit
+    main.set(Part(parentT, c, center, Vector3(2 * ix, h, thick)));                                    // tall middle
+    extra[0].set(Part(parentT, c, center + Vector3(-(ix + rad * 0.5f), 0, 0), Vector3(rad, 2 * iy, thick)));  // left side
+    extra[1].set(Part(parentT, c, center + Vector3(ix + rad * 0.5f, 0, 0), Vector3(rad, 2 * iy, thick)));     // right side
+    int k = 2;
+    for (int sx = -1; sx <= 1; sx += 2)
+        for (int sy = -1; sy <= 1; sy += 2)
+            extra[k++].set(Disc(parentT, c, center + Vector3(sx * ix, sy * iy, 0), 2 * rad, 2 * rad, thick));
+}
+static void SetPanelColor(Ref &main, Ref *extra, Color c) {
+    SetColor(main.get(), c);
+    for (int i = 0; i < 6; i++) SetColor(extra[i].get(), c);
+}
+
 // Where the ball sits on your hand (ii's four pointer positions).
 static const Vector3 kPointerSpots[] = {Vector3(0.01f, -0.017f, 0.19f), Vector3(0, -0.1f, 0.05f),
                                         Vector3(0, 0.1f, -0.05f), Vector3(0, 0.0666f, 0.1f)};
@@ -621,14 +640,14 @@ static void BuildMenu() {
     G.trSetLocalPosition[bt](Vector3(0.1f, 0, 0));
     G.trSetLocalRotation[bt](Quaternion::LookRotation(Vector3(-1, 0, 0), Vector3(0, 0, 1)));
 
-    g_outline.set(Disc(bt, T().title, Vector3(0, 0, 0.004f), kDisc + 0.016f, kDisc + 0.016f, 0.004f));
-    g_bg.set(Disc(bt, T().bgA, Vector3(0, 0, 0), kDisc, kDisc, 0.01f));
+    RoundRect(bt, T().title, Vector3(0, 0, 0.004f), kBoardW + 0.008f, kBoardH + 0.008f, 0.039f, 0.004f, g_outline, g_outEx);
+    RoundRect(bt, T().bgA, Vector3(0, 0, 0), kBoardW, kBoardH, 0.035f, 0.01f, g_bg, g_bgEx);
     for (int r = 0; r < kRows; r++)
         g_rowCube[r].set(Part(bt, T().button, Vector3(0, RowY(r), -0.005f), Vector3(kBtnW, kBtnH, 0.009f)));
-    g_prev.set(Disc(bt, T().button, Vector3(-kSideX, 0, 0), kSideW, kSideH, 0.009f));
+    g_prev.set(Part(bt, T().button, Vector3(-kSideX, 0, 0), Vector3(kSideW, kSideH, 0.009f)));
     // The title sits on its own dark bar above the board (where ii's Disconnect button was)
-    g_titleBar.set(Disc(bt, T().buttonOn, Vector3(0, kTitleY, -0.002f), kBtnW, 0.05f, 0.009f));
-    g_next.set(Disc(bt, T().button, Vector3(kSideX, 0, 0), kSideW, kSideH, 0.009f));
+    g_titleBar.set(Part(bt, T().buttonOn, Vector3(0, kTitleY, -0.002f), Vector3(kBtnW, 0.045f, 0.009f)));
+    g_next.set(Part(bt, T().button, Vector3(kSideX, 0, 0), Vector3(kSideW, kSideH, 0.009f)));
 
     if (Il2CppObject *canvas = Canvas(bt, Vector3(0, 0, -0.0105f), kBoardW + 2 * kSideX, kBoardH + 0.1f)) {
         Il2CppObject *ct = Tr(canvas);
@@ -692,7 +711,7 @@ static void RenderPage() {
     Show(g_next, pages);
     SetColor(g_prev.get(), T().button);
     SetColor(g_next.get(), T().button);
-    SetColor(g_outline.get(), T().title);
+    SetPanelColor(g_outline, g_outEx, T().title);
     SetColor(g_titleBar.get(), T().buttonOn);
     SetColor(g_pointer.get(), T().bgB);
     if (Alive(g_title.get())) G.graphicSetColor[g_title.get()](Color(1, 1, 1, 1));
@@ -841,7 +860,7 @@ static void AnimateMenu() {
     if (g_flashRow != -2 && g_time >= g_flashUntil) { g_flashRow = -2; g_dirty = true; }
     float t = 0.5f + 0.5f * sinf((float)g_time * 2.0f);
     Color c = f_rainbow ? Rainbow((float)g_time * 0.15f) : Lerp(T().bgA, T().bgB, t);
-    SetColor(g_bg.get(), c);
+    SetPanelColor(g_bg, g_bgEx, c);
 }
 
 // ---- features (local only) -----------------------------------------------------
@@ -1452,6 +1471,7 @@ static void OnRoomChange() {
     for (int r = 0; r < kRows; r++) { g_rowCube[r].clear(); g_rowLabel[r].clear(); g_rowText[r].clear(); }
     for (Ref *r : {&g_board, &g_bg, &g_outline, &g_title, &g_titleBar, &g_prev, &g_next, &g_notifyText, &g_tipText}) r->clear();
     for (Ref *r : {&g_menu, &g_pointer, &g_notifyGo, &g_leftPlatform, &g_rightPlatform, &g_gunBall, &g_gunLineGo}) Kill(*r);
+    for (int i = 0; i < 6; i++) { g_bgEx[i].clear(); g_outEx[i].clear(); }
     PauseTrackers(false);
     g_dancing = false;
     g_gunLine.clear();
