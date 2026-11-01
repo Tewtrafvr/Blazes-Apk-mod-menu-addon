@@ -327,12 +327,15 @@ static std::vector<PendingItem> g_itemQueue;
 static double g_nextItem = 0, g_nextBatch = 0;
 static int g_dupeArmed = 0;
 
-static constexpr int kDances = 17;
+static constexpr int kDances = 29;
 static bool g_danceSel[kDances];
 static int g_dance = -1;            // the picked dance, -1 = none
 static bool f_fly, f_fastFly, f_platforms, f_lowGravity, f_rainbow, f_fps, f_clock, f_rightHand,
             f_notify = true;
 static bool f_superJump, f_slowFall, f_airJump, f_dash, f_hover, f_bouncy, f_speedText, f_heightText;
+static bool f_jetpack, f_autoTheme, f_clock24, f_haptics = true;
+static Vector3 g_spot2;
+static bool g_haveSpot2 = false;
 static float g_menuSize = 1.0f;
 static Ref g_player, g_rigidbody, g_leftHand, g_rightHand, g_head;
 static Vector3 g_spot;
@@ -358,6 +361,23 @@ static void ArmTriangle();
 static bool LeftHandItem();
 static void NextMenuSize();
 static void NextFunnySpeed();
+static void SaveSpot2();
+static void GoToSpot2();
+static void TeleportForward();
+static void TeleportUp();
+static void ArmLine();
+static void ArmSpiral();
+static void ArmPyramid();
+static void ArmHeart();
+static void ArmCross();
+static void ArmStar();
+static void ArmDonut();
+static void ArmDiamond();
+static void ArmArrow();
+static void ArmWave();
+static void ArmTower();
+static void ArmWall();
+static void ArmBigGrid();
 static void LaunchUp();
 static void StopAction();
 static bool GetVel(Vector3 &v);
@@ -400,7 +420,12 @@ static Item g_items[] = {
     {MOVEMENT, "Dash", TOGGLE, MAIN, &f_dash},
     {MOVEMENT, "Hover", TOGGLE, MAIN, &f_hover},
     {MOVEMENT, "Bouncy", TOGGLE, MAIN, &f_bouncy},
+    {MOVEMENT, "Jetpack", TOGGLE, MAIN, &f_jetpack},
     {MOVEMENT, "Launch Up", ACTION, MAIN, nullptr, LaunchUp},
+    {MOVEMENT, "Teleport Forward", ACTION, MAIN, nullptr, TeleportForward},
+    {MOVEMENT, "Teleport Up", ACTION, MAIN, nullptr, TeleportUp},
+    {MOVEMENT, "Save Spot 2", ACTION, MAIN, nullptr, SaveSpot2},
+    {MOVEMENT, "Go To Spot 2", ACTION, MAIN, nullptr, GoToSpot2},
     {MOVEMENT, "Stop Moving", ACTION, MAIN, nullptr, StopAction},
     {MOVEMENT, "Save Spot", ACTION, MAIN, nullptr, SaveSpot},
     {MOVEMENT, "Go To Spot", ACTION, MAIN, nullptr, GoToSpot},
@@ -425,6 +450,18 @@ static Item g_items[] = {
     {RIG, "Funny Run Speed", ACTION, MAIN, nullptr, NextFunnySpeed},
     {RIG, "Spin", TOGGLE, MAIN, &g_danceSel[15], DancePicked},
     {RIG, "Upside Down", TOGGLE, MAIN, &g_danceSel[16], DancePicked},
+    {RIG, "Floss", TOGGLE, MAIN, &g_danceSel[17], DancePicked},
+    {RIG, "Dab", TOGGLE, MAIN, &g_danceSel[18], DancePicked},
+    {RIG, "Salute", TOGGLE, MAIN, &g_danceSel[19], DancePicked},
+    {RIG, "Zombie", TOGGLE, MAIN, &g_danceSel[20], DancePicked},
+    {RIG, "Lasso", TOGGLE, MAIN, &g_danceSel[21], DancePicked},
+    {RIG, "Chicken", TOGGLE, MAIN, &g_danceSel[22], DancePicked},
+    {RIG, "Robot", TOGGLE, MAIN, &g_danceSel[23], DancePicked},
+    {RIG, "Heart", TOGGLE, MAIN, &g_danceSel[24], DancePicked},
+    {RIG, "Flex", TOGGLE, MAIN, &g_danceSel[25], DancePicked},
+    {RIG, "Shrug", TOGGLE, MAIN, &g_danceSel[26], DancePicked},
+    {RIG, "Conductor", TOGGLE, MAIN, &g_danceSel[27], DancePicked},
+    {RIG, "Both Waving", TOGGLE, MAIN, &g_danceSel[28], DancePicked},
 
     {ITEMS, "Exit Items", OPEN, MAIN},
     {ITEMS, "Spawn Item Gun", TOGGLE, MAIN, &f_itemGun},
@@ -433,6 +470,19 @@ static Item g_items[] = {
     {ITEMS, "Duplicate Items (Circle)", ACTION, MAIN, nullptr, ArmCircle},
     {ITEMS, "Big Square (4x4)", ACTION, MAIN, nullptr, ArmSquare},
     {ITEMS, "Big Triangle", ACTION, MAIN, nullptr, ArmTriangle},
+    {ITEMS, "Line (10)", ACTION, MAIN, nullptr, ArmLine},
+    {ITEMS, "Spiral", ACTION, MAIN, nullptr, ArmSpiral},
+    {ITEMS, "Pyramid", ACTION, MAIN, nullptr, ArmPyramid},
+    {ITEMS, "Heart", ACTION, MAIN, nullptr, ArmHeart},
+    {ITEMS, "Cross", ACTION, MAIN, nullptr, ArmCross},
+    {ITEMS, "Star", ACTION, MAIN, nullptr, ArmStar},
+    {ITEMS, "Donut", ACTION, MAIN, nullptr, ArmDonut},
+    {ITEMS, "Diamond", ACTION, MAIN, nullptr, ArmDiamond},
+    {ITEMS, "Arrow", ACTION, MAIN, nullptr, ArmArrow},
+    {ITEMS, "Wave", ACTION, MAIN, nullptr, ArmWave},
+    {ITEMS, "Tower (8)", ACTION, MAIN, nullptr, ArmTower},
+    {ITEMS, "Wall (5x3)", ACTION, MAIN, nullptr, ArmWall},
+    {ITEMS, "Big Grid (5x5)", ACTION, MAIN, nullptr, ArmBigGrid},
     {ITEMS, "Spawn On Hand", TOGGLE, MAIN, &f_spawnOnHand},
 
     {SETTINGS, "Exit Settings", OPEN, MAIN},
@@ -444,6 +494,9 @@ static Item g_items[] = {
     {SETTINGS, "Rainbow Menu", TOGGLE, MAIN, &f_rainbow},
     {SETTINGS, "Show FPS", TOGGLE, MAIN, &f_fps},
     {SETTINGS, "Show Clock", TOGGLE, MAIN, &f_clock},
+    {SETTINGS, "24 Hour Clock", TOGGLE, MAIN, &f_clock24},
+    {SETTINGS, "Auto Theme", TOGGLE, MAIN, &f_autoTheme},
+    {SETTINGS, "Button Buzz", TOGGLE, MAIN, &f_haptics},
     {SETTINGS, "Show Speed", TOGGLE, MAIN, &f_speedText},
     {SETTINGS, "Show Height", TOGGLE, MAIN, &f_heightText},
     {SETTINGS, "Menu Size", ACTION, MAIN, nullptr, NextMenuSize},
@@ -476,7 +529,12 @@ static const struct { const char *label, *tip; } kTips[] = {
     {"Dash", "Press X to dash the way you look."},
     {"Hover", "Hold left trigger to hang in the air (not with a dance picked)."},
     {"Bouncy", "Hard landings bounce you back up."},
+    {"Jetpack", "Hold B to thrust upward (needs Right Hand Menu off)."},
     {"Launch Up", "Shoots you straight up."},
+    {"Teleport Forward", "Teleports you 5 meters the way you look."},
+    {"Teleport Up", "Teleports you 5 meters up."},
+    {"Save Spot 2", "Remembers a second spot."},
+    {"Go To Spot 2", "Teleports you to your second spot."},
     {"Stop Moving", "Stops all your movement right now."},
     {"Save Spot", "Remembers where you are."},
     {"Go To Spot", "Teleports you to your saved spot."},
@@ -484,6 +542,9 @@ static const struct { const char *label, *tip; } kTips[] = {
     {"Rainbow Menu", "The menu cycles through colors."},
     {"Show FPS", "Frames per second in the title."},
     {"Show Clock", "The time in the title."},
+    {"24 Hour Clock", "Show Clock uses 24 hour time."},
+    {"Auto Theme", "The menu changes theme every few seconds."},
+    {"Button Buzz", "A small buzz when you press a button."},
     {"Show Speed", "Your speed in the title."},
     {"Show Height", "How high you are, in the title."},
     {"Menu Size", "Cycles the menu size: normal, big, huge, small."},
@@ -493,6 +554,31 @@ static const struct { const char *label, *tip; } kTips[] = {
     {"Clap", "Hands clap in front of you. Hold left trigger."},
     {"Hands Up", "Both arms up and swaying. Hold left trigger."},
     {"Sprinkler", "One hand sweeps out and back. Hold left trigger."},
+    {"Robot", "Stiff robot poses that snap from one to the next. Hold left trigger."},
+    {"Heart", "Hands pulse together in front of your chest. Hold left trigger."},
+    {"Flex", "Arms bent, fists by your head. Hold left trigger."},
+    {"Shrug", "Hands out low and lifting. Hold left trigger."},
+    {"Conductor", "One hand draws a figure eight in the air. Hold left trigger."},
+    {"Both Waving", "Both hands up and waving. Hold left trigger."},
+    {"Floss", "Arms swing side to side. Hold left trigger."},
+    {"Dab", "The classic dab. Hold left trigger."},
+    {"Salute", "A salute. Hold left trigger."},
+    {"Zombie", "Arms out in front, wobbling. Hold left trigger."},
+    {"Lasso", "One hand spins over your head. Hold left trigger."},
+    {"Chicken", "Arms flap at your sides. Hold left trigger."},
+    {"Line (10)", "10 of the item in your left hand form a line in front of you."},
+    {"Spiral", "12 of the item in your left hand form a spiral in front of you."},
+    {"Pyramid", "14 of the item in your left hand stack into a pyramid in front of you."},
+    {"Heart", "16 of the item in your left hand form a heart in front of you."},
+    {"Cross", "9 of the item in your left hand form a plus sign in front of you."},
+    {"Star", "10 of the item in your left hand form a star in front of you."},
+    {"Donut", "24 of the item in your left hand form a double ring in front of you."},
+    {"Diamond", "12 of the item in your left hand form a diamond in front of you."},
+    {"Arrow", "9 of the item in your left hand form an arrow pointing away from you."},
+    {"Wave", "12 of the item in your left hand form a wavy line in front of you."},
+    {"Tower (8)", "8 of the item in your left hand stack up in a column in front of you."},
+    {"Wall (5x3)", "15 of the item in your left hand form a wall in front of you."},
+    {"Big Grid (5x5)", "25 of the item in your left hand form a big grid in front of you."},
     {"Funny Run", "Arms pump like a sprint. Hold left trigger."},
     {"Funny Run Speed", "Slow, normal or fast arm pumping."},
     {"Spin", "Both hands circle in front of you. Hold left trigger."},
@@ -803,7 +889,8 @@ static void UpdateTitle() {
         time_t now = time(nullptr);
         struct tm lt;
         localtime_r(&now, &lt);
-        n += snprintf(buf + n, sizeof buf - n, "<size=16>  %d:%02d</size>", lt.tm_hour % 12 ? lt.tm_hour % 12 : 12, lt.tm_min);
+        if (f_clock24) n += snprintf(buf + n, sizeof buf - n, "<size=16>  %d:%02d</size>", lt.tm_hour, lt.tm_min);
+        else n += snprintf(buf + n, sizeof buf - n, "<size=16>  %d:%02d</size>", lt.tm_hour % 12 ? lt.tm_hour % 12 : 12, lt.tm_min);
     }
     if (f_speedText) {
         Vector3 v;
@@ -887,7 +974,7 @@ static int Touching() {
 }
 
 static void Buzz() {
-    if (!G.haptic.IsValid()) return;
+    if (!f_haptics || !G.haptic.IsValid()) return;
     XRDevice d = G.deviceAtNode(f_rightHand ? 4 : 5);    // the hand that presses
     if (d.initialized) G.haptic(d.id, 0u, 0.35f, 0.04f);
 }
@@ -922,6 +1009,8 @@ static void AnimateMenu() {
         G.trSetLocalScale[Tr(g_menu.get())](Vector3(k * g_menuSize, k * g_menuSize, k * g_menuSize));
     }
     if (g_flashRow != -2 && g_time >= g_flashUntil) { g_flashRow = -2; g_dirty = true; }
+    static double nextTheme = 0;
+    if (f_autoTheme && g_time >= nextTheme) { nextTheme = g_time + 4.0; g_theme = (g_theme + 1) % kThemeCount; g_dirty = true; }
     float t = 0.5f + 0.5f * sinf((float)g_time * 2.0f);
     Color c = f_rainbow ? Rainbow((float)g_time * 0.15f) : Lerp(T().bgA, T().bgB, t);
     SetPanelColor(g_bg, g_bgEx, c);
@@ -974,6 +1063,15 @@ static void GoToSpot() {
     if (!g_haveSpot) { Notify("Save a spot first"); return; }
     TeleportPlayer(g_spot);
     Notify("Teleported to your spot");
+}
+
+static void SaveSpot2() {
+    if (BodyPos(g_spot2)) { g_haveSpot2 = true; Notify("Spot 2 saved"); }
+}
+static void GoToSpot2() {
+    if (!g_haveSpot2) { Notify("Save spot 2 first"); return; }
+    TeleportPlayer(g_spot2);
+    Notify("Teleported to spot 2");
 }
 
 static const float kIronSpeeds[] = {15, 12, 8, 4};
@@ -1093,8 +1191,21 @@ static void IronManTick(const Buttons &in, float dt) {
 static float g_lastVy = 0;
 static bool g_prevX = false, g_prevY = false;
 static double g_nextAirJump = 0, g_nextDash = 0;
-static void MoreMovementTick(const Buttons &in) {
-    bool any = f_slowFall || f_airJump || f_dash || f_hover || f_bouncy;
+static void TeleportForward() {
+    Il2CppObject *head = g_head.get();
+    Vector3 b;
+    if (!head || !BodyPos(b)) return;
+    TeleportPlayer(b + Flat(G.trGetForward[head]()) * 5.0f);
+    Notify("Teleported 5 m forward");
+}
+static void TeleportUp() {
+    Vector3 b;
+    if (!BodyPos(b)) return;
+    TeleportPlayer(b + Vector3(0, 5.0f, 0));
+    Notify("Teleported 5 m up");
+}
+static void MoreMovementTick(const Buttons &in, float dt) {
+    bool any = f_slowFall || f_airJump || f_dash || f_hover || f_bouncy || f_jetpack;
     bool x = in.x, y = in.y;
     bool xEdge = x && !g_prevX, yEdge = y && !g_prevY;
     g_prevX = x; g_prevY = y;
@@ -1114,6 +1225,7 @@ static void MoreMovementTick(const Buttons &in) {
         v.x += f.x * 12.0f; v.z += f.z * 12.0f;
         SetVel(v);
     }
+    if (f_jetpack && in.b && !f_rightHand) { v.y = fminf(v.y + 18.0f * dt, 7.0f); SetVel(v); }   // thrust up while B is held
     if (f_slowFall && !f_noGravity && v.y < -2.5f) { v.y = -2.5f; SetVel(v); }       // glide down gently
     if (f_bouncy && g_lastVy < -4.0f && v.y > g_lastVy + 3.0f) { v.y = -g_lastVy * 0.8f; SetVel(v); }   // landed hard
     g_lastVy = v.y;
@@ -1430,6 +1542,65 @@ static void DanceTick(const Buttons &in, float dt) {
         R = shoulder + r * 0.25f + up * (-0.55f + 0.05f * s) + f * 0.1f;
         L = shoulder - r * 0.25f + up * (-0.55f - 0.05f * s) + f * 0.1f;
         break;
+    case 17: {  // Floss: both arms swing side to side together
+        float sway = 0.35f * sinf(t * 8);
+        R = shoulder + r * (0.1f + sway) + f * 0.25f - up * 0.2f;
+        L = shoulder + r * (-0.1f + sway) + f * 0.25f - up * 0.2f;
+        break;
+    }
+    case 18:  // Dab: one arm out and up, the other bent in front of your face
+        R = shoulder + r * 0.55f + up * 0.35f + f * 0.2f;
+        L = shoulder + f * 0.3f - r * 0.05f + up * 0.25f;
+        break;
+    case 19:  // Salute: right hand at your forehead
+        R = shoulder + up * 0.42f + f * 0.18f + r * 0.12f;
+        L = shoulder - r * 0.22f - up * 0.25f;
+        break;
+    case 20:  // Zombie: both arms out in front, wobbling
+        R = shoulder + f * 0.65f + r * 0.18f + up * (-0.05f + 0.05f * s);
+        L = shoulder + f * 0.65f - r * 0.18f + up * (-0.05f - 0.05f * s);
+        break;
+    case 21: {  // Lasso: right hand spins over your head
+        float p = t * 8;
+        R = shoulder + up * 0.65f + r * (0.25f * cosf(p)) + f * (0.25f * sinf(p));
+        L = shoulder - r * 0.22f - up * 0.25f;
+        break;
+    }
+    case 22:  // Chicken: elbows flapping at your sides
+        R = shoulder + r * 0.35f + up * (-0.05f + 0.15f * sinf(t * 14)) - f * 0.05f;
+        L = shoulder - r * 0.35f + up * (-0.05f - 0.15f * sinf(t * 14)) - f * 0.05f;
+        break;
+    case 23: {  // Robot: stiff poses that snap from one to the next
+        static const float kRobot[4][3] = {{0.25f, 0.2f, 0.4f}, {0.6f, 0.05f, 0.0f}, {0.15f, -0.1f, 0.5f}, {0.25f, 0.5f, 0.0f}};
+        int a = ((int)floorf(t * 2.5f)) & 3, b = (a + 2) & 3;
+        R = shoulder + r * kRobot[a][0] + up * kRobot[a][1] + f * kRobot[a][2];
+        L = shoulder - r * kRobot[b][0] + up * kRobot[b][1] + f * kRobot[b][2];
+        break;
+    }
+    case 24:  // Heart: hands pulse together in front of your chest
+        R = shoulder + f * 0.4f + r * (0.06f + 0.03f * s) - up * 0.1f;
+        L = shoulder + f * 0.4f - r * (0.06f + 0.03f * s) - up * 0.1f;
+        break;
+    case 25:  // Flex: arms bent, fists by your head
+        R = shoulder + r * 0.35f + up * (0.35f + 0.03f * s) + f * 0.05f;
+        L = shoulder - r * 0.35f + up * (0.35f + 0.03f * s) + f * 0.05f;
+        break;
+    case 26: {  // Shrug: hands out low and lifting
+        float lift = 0.5f + 0.5f * sinf(t * 3);
+        R = shoulder + r * 0.45f + f * 0.25f + up * (-0.3f + 0.2f * lift);
+        L = shoulder - r * 0.45f + f * 0.25f + up * (-0.3f + 0.2f * lift);
+        break;
+    }
+    case 27: {  // Conductor: the right hand draws a figure eight, the left rests low
+        float p = t * 5;
+        R = shoulder + f * 0.45f + r * (0.25f * sinf(p)) + up * (0.1f + 0.12f * sinf(2 * p));
+        L = shoulder - r * 0.3f + f * 0.2f - up * 0.2f;
+        break;
+    }
+    case 28:  // Both Waving: both hands up, waving out of step
+        R = shoulder + r * (0.35f + 0.12f * s) + up * 0.45f + f * 0.1f;
+        L = shoulder - r * (0.35f + 0.12f * sinf(t * 6 + 1.5f)) + up * 0.45f + f * 0.1f;
+        break;
     default:
         R = L = shoulder;
         break;
@@ -1443,7 +1614,7 @@ static void DanceTick(const Buttons &in, float dt) {
     };
     R = reach(R, shoulder + r * 0.18f);
     L = reach(L, shoulder - r * 0.18f);
-    float k = g_dance == 6 ? 1.0f : fminf(1.0f, dt * 14.0f);     // Spaz stays twitchy
+    float k = (g_dance == 6 || g_dance == 23) ? 1.0f : fminf(1.0f, dt * 14.0f);     // Spaz stays twitchy
     G.trSetPosition[lh](G.trGetPosition[lh]() + (L - G.trGetPosition[lh]()) * k);
     G.trSetPosition[rh](G.trGetPosition[rh]() + (R - G.trGetPosition[rh]()) * k);
     Quaternion look = Quaternion::LookRotation(f, up);
@@ -1595,7 +1766,7 @@ static void ArmDupe27() { if (LeftHandItem()) SpawnGrid(27); }
 // More shapes in front of you. Same rules as the grids: the item in your left hand,
 // through QueueItems (one batch every 3 s, at most 27 items, 2 a frame).
 // The ring is centered 2 m ahead so nothing spawns on top of you.
-enum Shape { SHAPE_CIRCLE, SHAPE_SQUARE, SHAPE_TRIANGLE };
+enum Shape { SHAPE_CIRCLE, SHAPE_SQUARE, SHAPE_TRIANGLE, SHAPE_LINE, SHAPE_SPIRAL, SHAPE_PYRAMID, SHAPE_HEART, SHAPE_CROSS, SHAPE_STAR, SHAPE_DONUT, SHAPE_DIAMOND, SHAPE_ARROW, SHAPE_WAVE, SHAPE_TOWER, SHAPE_WALL, SHAPE_GRID };
 static void SpawnShape(Shape shape) {
     Il2CppObject *head = g_head.get();
     if (!head) return;
@@ -1612,16 +1783,114 @@ static void SpawnShape(Shape shape) {
         for (int z = 0; z < 4; z++)
             for (int x = 0; x < 4; x++)
                 list.push_back({base + r * ((x - 1.5f) * 0.45f) + f * (z * 0.45f), Vector3(0, 0, 0)});
-    } else {                                           // rows of 1, 2, 3, 4, 5 = 15
+    } else if (shape == SHAPE_TRIANGLE) {              // rows of 1, 2, 3, 4, 5 = 15
         for (int row = 0; row < 5; row++)
             for (int i = 0; i <= row; i++)
                 list.push_back({base + r * ((i - row * 0.5f) * 0.45f) + f * (row * 0.45f), Vector3(0, 0, 0)});
+    } else if (shape == SHAPE_LINE) {                  // 10 side by side
+        for (int i = 0; i < 10; i++)
+            list.push_back({base + r * ((i - 4.5f) * 0.4f) + f * 0.6f, Vector3(0, 0, 0)});
+    } else if (shape == SHAPE_SPIRAL) {                // a spiral of 12 that opens outward
+        Vector3 c = base + f * 0.9f;
+        for (int i = 0; i < 12; i++) {
+            float a = i * 0.9f, rad = 0.2f + i * 0.07f;
+            list.push_back({c + r * (cosf(a) * rad) + f * (sinf(a) * rad), Vector3(0, 0, 0)});
+        }
+    } else if (shape == SHAPE_PYRAMID) {               // a pyramid: 3x3 at the bottom, then 2x2, then 1 = 14
+        Vector3 c = base + f * 0.5f;
+        const float gap = 0.45f, rise = 0.4f;
+        for (int layer = 0; layer < 3; layer++) {
+            int n = 3 - layer;                         // 3, 2, 1 across
+            for (int z = 0; z < n; z++)
+                for (int x = 0; x < n; x++)
+                    list.push_back({c + r * ((x - (n - 1) * 0.5f) * gap) + f * ((z - (n - 1) * 0.5f) * gap) + Vector3(0, layer * rise, 0),
+                                    Vector3(0, 0, 0)});
+        }
+    } else if (shape == SHAPE_HEART) {                 // 16 in a heart, the point toward you
+        Vector3 c = base + f * 1.0f;
+        for (int i = 0; i < 16; i++) {
+            float a = i * (6.2831853f / 16.0f);
+            float hx = 16.0f * powf(sinf(a), 3.0f);
+            float hy = 13.0f * cosf(a) - 5.0f * cosf(2 * a) - 2.0f * cosf(3 * a) - cosf(4 * a);
+            list.push_back({c + r * (hx * 0.04f) + f * (hy * 0.04f), Vector3(0, 0, 0)});
+        }
+    } else if (shape == SHAPE_CROSS) {                 // a plus sign: the middle and two each way = 9
+        Vector3 c = base + f * 1.0f;
+        list.push_back({c, Vector3(0, 0, 0)});
+        for (int i = 1; i <= 2; i++) {
+            list.push_back({c + r * (i * 0.45f), Vector3(0, 0, 0)});
+            list.push_back({c - r * (i * 0.45f), Vector3(0, 0, 0)});
+            list.push_back({c + f * (i * 0.45f), Vector3(0, 0, 0)});
+            list.push_back({c - f * (i * 0.45f), Vector3(0, 0, 0)});
+        }
+    } else if (shape == SHAPE_STAR) {                  // a five-point star outline = 10
+        Vector3 c = base + f * 1.0f;
+        for (int i = 0; i < 10; i++) {
+            float a = i * (6.2831853f / 10.0f), rad = (i % 2 == 0) ? 0.8f : 0.35f;
+            list.push_back({c + r * (sinf(a) * rad) + f * (cosf(a) * rad), Vector3(0, 0, 0)});
+        }
+    } else if (shape == SHAPE_DONUT) {                 // a donut: an outer ring of 16 and an inner ring of 8 = 24
+        Vector3 c = base + f * 1.0f;
+        for (int i = 0; i < 16; i++) {
+            float a = i * (6.2831853f / 16.0f);
+            list.push_back({c + r * (cosf(a) * 0.9f) + f * (sinf(a) * 0.9f), Vector3(0, 0, 0)});
+        }
+        for (int i = 0; i < 8; i++) {
+            float a = i * (6.2831853f / 8.0f);
+            list.push_back({c + r * (cosf(a) * 0.45f) + f * (sinf(a) * 0.45f), Vector3(0, 0, 0)});
+        }
+    } else if (shape == SHAPE_DIAMOND) {               // a diamond outline, 3 on each side = 12
+        Vector3 c = base + f * 1.2f;
+        const float vx[4] = {0.0f, 0.9f, 0.0f, -0.9f}, vy[4] = {0.9f, 0.0f, -0.9f, 0.0f};
+        for (int e = 0; e < 4; e++)
+            for (int j = 0; j < 3; j++) {
+                float k = j / 3.0f, x = vx[e] + (vx[(e + 1) % 4] - vx[e]) * k, y = vy[e] + (vy[(e + 1) % 4] - vy[e]) * k;
+                list.push_back({c + r * x + f * y, Vector3(0, 0, 0)});
+            }
+    } else if (shape == SHAPE_ARROW) {                 // an arrow pointing away from you: a shaft of 4 and a head of 5 = 9
+        Vector3 c = base + f * 0.6f;
+        for (int i = 0; i < 4; i++) list.push_back({c + f * (i * 0.4f), Vector3(0, 0, 0)});
+        for (int sx = -1; sx <= 1; sx += 2) {
+            list.push_back({c + r * (sx * 0.7f) + f * 1.5f, Vector3(0, 0, 0)});
+            list.push_back({c + r * (sx * 0.35f) + f * 1.85f, Vector3(0, 0, 0)});
+        }
+        list.push_back({c + f * 2.2f, Vector3(0, 0, 0)});
+    } else if (shape == SHAPE_WAVE) {                  // a wavy line across, 12 items
+        Vector3 c = base + f * 1.0f;
+        for (int i = 0; i < 12; i++)
+            list.push_back({c + r * ((i - 5.5f) * 0.35f) + f * (0.4f * sinf(i * 0.8f)), Vector3(0, 0, 0)});
+    } else if (shape == SHAPE_TOWER) {                 // a column of 8
+        Vector3 c = base + f * 1.0f;
+        for (int i = 0; i < 8; i++) list.push_back({c + Vector3(0, i * 0.45f, 0), Vector3(0, 0, 0)});
+    } else if (shape == SHAPE_WALL) {                  // a wall, 5 across and 3 high = 15
+        Vector3 c = base + f * 1.2f;
+        for (int row = 0; row < 3; row++)
+            for (int col = 0; col < 5; col++)
+                list.push_back({c + r * ((col - 2) * 0.45f) + Vector3(0, row * 0.45f, 0), Vector3(0, 0, 0)});
+    } else {                                           // a big flat grid, 5 x 5 = 25
+        Vector3 c = base + f * 1.6f;
+        for (int z = 0; z < 5; z++)
+            for (int x = 0; x < 5; x++)
+                list.push_back({c + r * ((x - 2) * 0.45f) + f * ((z - 2) * 0.45f), Vector3(0, 0, 0)});
     }
     QueueItems(list);
 }
 static void ArmCircle() { if (LeftHandItem()) SpawnShape(SHAPE_CIRCLE); }
 static void ArmSquare() { if (LeftHandItem()) SpawnShape(SHAPE_SQUARE); }
 static void ArmTriangle() { if (LeftHandItem()) SpawnShape(SHAPE_TRIANGLE); }
+static void ArmLine() { if (LeftHandItem()) SpawnShape(SHAPE_LINE); }
+static void ArmSpiral() { if (LeftHandItem()) SpawnShape(SHAPE_SPIRAL); }
+static void ArmPyramid() { if (LeftHandItem()) SpawnShape(SHAPE_PYRAMID); }
+static void ArmHeart() { if (LeftHandItem()) SpawnShape(SHAPE_HEART); }
+static void ArmCross() { if (LeftHandItem()) SpawnShape(SHAPE_CROSS); }
+static void ArmStar() { if (LeftHandItem()) SpawnShape(SHAPE_STAR); }
+static void ArmDonut() { if (LeftHandItem()) SpawnShape(SHAPE_DONUT); }
+static void ArmDiamond() { if (LeftHandItem()) SpawnShape(SHAPE_DIAMOND); }
+static void ArmArrow() { if (LeftHandItem()) SpawnShape(SHAPE_ARROW); }
+static void ArmWave() { if (LeftHandItem()) SpawnShape(SHAPE_WAVE); }
+static void ArmTower() { if (LeftHandItem()) SpawnShape(SHAPE_TOWER); }
+static void ArmWall() { if (LeftHandItem()) SpawnShape(SHAPE_WALL); }
+static void ArmBigGrid() { if (LeftHandItem()) SpawnShape(SHAPE_GRID); }
 
 // Spawn On Hand: each right-trigger press (grip open) spawns the item at your hand.
 static bool g_onHandTrigger = false;
@@ -1688,7 +1957,7 @@ static void OnUpdate(float dt) {
     if (g_notifyUntil > 0 && g_time >= g_notifyUntil) { Show(g_notifyGo, false); g_notifyUntil = 0; }
     FlyTick(in, dt);
     LowGravityTick(in, dt);
-    MoreMovementTick(in);
+    MoreMovementTick(in, dt);
     PlatformFor(in.lgrip, g_leftPlatform, g_leftHand);
     PlatformFor(in.rgrip, g_rightPlatform, g_rightHand);
     VelocityFlyTick(in);
