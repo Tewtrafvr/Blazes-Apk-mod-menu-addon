@@ -327,7 +327,8 @@ static std::vector<PendingItem> g_itemQueue;
 static double g_nextItem = 0, g_nextBatch = 0;
 static int g_dupeArmed = 0;
 
-static constexpr int kDances = 29;
+static constexpr int kDances = 128;        // 32 hand-made poses, then 96 generated ones (kGenFirst)
+static constexpr int kGenFirst = 32;
 static bool g_danceSel[kDances];
 static int g_dance = -1;            // the picked dance, -1 = none
 static bool f_fly, f_fastFly, f_platforms, f_lowGravity, f_rainbow, f_fps, f_clock, f_rightHand,
@@ -337,6 +338,9 @@ static bool f_jetpack, f_autoTheme, f_clock24, f_haptics = true;
 static Vector3 g_spot2;
 static bool g_haveSpot2 = false;
 static float g_menuSize = 1.0f;
+static int g_itemMult = 1;                                  // Item Multiplier: copies per Spawn On Hand press
+static int g_flyLevel = 0, g_jumpLevel = 0;               // 0 = the normal speeds
+static float g_dashPower = 12.0f, g_gravCancel = 0.7f, g_danceSpeed = 1.0f;
 static Ref g_player, g_rigidbody, g_leftHand, g_rightHand, g_head;
 static Vector3 g_spot;
 static bool g_haveSpot = false;
@@ -380,11 +384,235 @@ static void ArmWall();
 static void ArmBigGrid();
 static void LaunchUp();
 static void StopAction();
+static void ClearItemQueue();
+static void ItemMultOff();
+static void ItemMult2();
+static void ItemMult3();
+static void ItemMult4();
+static void ItemMult5();
+static void ItemMult6();
+static void ItemMult8();
+static void ItemMult10();
+static void ItemMult12();
+static void ItemMult16();
+static void ItemMult20();
+static void PoseSpd0();
+static void PoseSpd1();
+static void PoseSpd2();
+static void PoseSpd3();
+static void PoseSpd4();
+static void PoseSpd5();
+static void PoseSpd6();
+static void PoseSpd7();
+static void PoseSpd8();
+static void PoseSpd9();
+static void ArmS0();
+static void ArmS1();
+static void ArmS2();
+static void ArmS3();
+static void ArmS4();
+static void ArmS5();
+static void ArmS6();
+static void ArmS7();
+static void ArmS8();
+static void ArmS9();
+static void ArmS10();
+static void ArmS11();
+static void ArmS12();
+static void ArmS13();
+static void ArmS14();
+static void ArmS15();
+static void ArmS16();
+static void ArmS17();
+static void ArmS18();
+static void ArmS19();
+static void ArmS20();
+static void ArmS21();
+static void ArmS22();
+static void ArmS23();
+static void ArmS24();
+static void ArmS25();
+static void ArmS26();
+static void ArmS27();
+static void ArmS28();
+static void ArmS29();
+static void ArmS30();
+static void ArmS31();
+static void ArmS32();
+static void ArmS33();
+static void ArmS34();
+static void ArmS35();
+static void ArmS36();
+static void ArmS37();
+static void ArmS38();
+static void ArmS39();
+static void ArmS40();
+static void ArmS41();
+static void ArmS42();
+static void ArmS43();
+static void ArmS44();
+static void ArmS45();
+static void ArmS46();
+static void ArmS47();
+static void ArmS48();
+static void ArmS49();
+static void ArmS50();
+static void ArmS51();
+static void ArmS52();
+static void ArmS53();
+static void ArmS54();
+static void ArmS55();
+static void ArmS56();
+static void ArmS57();
+static void ArmS58();
+static void ArmS59();
+static void ArmS60();
+static void ArmS61();
+static void ArmS62();
+static void ArmS63();
+static void ArmS64();
+static void ArmS65();
+static void ArmS66();
+static void ArmS67();
+static void ArmS68();
+static void ArmS69();
+static void ArmS70();
+static void ArmS71();
+static void ArmS72();
+static void ArmS73();
+static void ArmS74();
+static void ArmS75();
+static void ArmS76();
+static void ArmS77();
+static void ArmS78();
+static void ArmS79();
+static void ArmS80();
+static void ArmS81();
+static void ArmS82();
+static void ArmS83();
+static void ArmS84();
+static void ArmS85();
+static void ArmS86();
+static void ArmS87();
+static void ArmS88();
+static void ArmS89();
+static void ArmS90();
+static void ArmS91();
+static void FlyNormal();
+static void JumpNormal();
+static void FlyLvl1();
+static void FlyLvl2();
+static void FlyLvl3();
+static void FlyLvl4();
+static void FlyLvl5();
+static void FlyLvl6();
+static void FlyLvl7();
+static void FlyLvl8();
+static void FlyLvl9();
+static void FlyLvl10();
+static void FlyLvl11();
+static void FlyLvl12();
+static void FlyLvl13();
+static void FlyLvl14();
+static void FlyLvl15();
+static void FlyLvl16();
+static void FlyLvl17();
+static void FlyLvl18();
+static void FlyLvl19();
+static void FlyLvl20();
+static void JumpLvl1();
+static void JumpLvl2();
+static void JumpLvl3();
+static void JumpLvl4();
+static void JumpLvl5();
+static void JumpLvl6();
+static void JumpLvl7();
+static void JumpLvl8();
+static void JumpLvl9();
+static void JumpLvl10();
+static void JumpLvl11();
+static void JumpLvl12();
+static void JumpLvl13();
+static void JumpLvl14();
+static void JumpLvl15();
+static void JumpLvl16();
+static void JumpLvl17();
+static void JumpLvl18();
+static void JumpLvl19();
+static void JumpLvl20();
+static void DashLvl1();
+static void DashLvl2();
+static void DashLvl3();
+static void DashLvl4();
+static void DashLvl5();
+static void DashLvl6();
+static void DashLvl7();
+static void DashLvl8();
+static void DashLvl9();
+static void DashLvl10();
+static void GravNormal();
+static void GravLvl0();
+static void GravLvl10();
+static void GravLvl20();
+static void GravLvl30();
+static void GravLvl40();
+static void GravLvl50();
+static void GravLvl60();
+static void GravLvl70();
+static void GravLvl80();
+static void GravLvl90();
+static void ThemeSet0();
+static void ThemeSet1();
+static void ThemeSet2();
+static void ThemeSet3();
+static void ThemeSet4();
+static void ThemeSet5();
+static void ThemeSet6();
+static void ThemeSet7();
+static void ThemeSet8();
+static void ThemeSet9();
+static void ThemeSet10();
+static void ThemeSet11();
+static void ThemeSet12();
+static void ThemeSet13();
+static void ThemeSet14();
+static void ThemeSet15();
+static void ThemeSet16();
+static void ThemeSet17();
+static void ThemeSet18();
+static void ThemeSet19();
+static void ThemeSet20();
+static void ThemeSet21();
+static void ThemeSet22();
+static void ThemeSet23();
+static void ThemeSet24();
+static void ThemeSet25();
+static void ThemeSet26();
+static void ThemeSet27();
+static void ThemeSet28();
+static void ThemeSet29();
+static void ThemeSet30();
+static void ThemeSet31();
+static void ThemeSet32();
+static void ThemeSet33();
+static void ThemeSet34();
+static void ThemeSet35();
+static void SizeSet0();
+static void SizeSet1();
+static void SizeSet2();
+static void SizeSet3();
+static void SizeSet4();
+static void SizeSet5();
+static void SizeSet6();
+static void SizeSet7();
+static void SizeSet8();
+static void SizeSet9();
 static bool GetVel(Vector3 &v);
 static bool BodyPos(Vector3 &out);
 
-enum Cat { MAIN, MOVEMENT, RIG, ITEMS, SETTINGS, ENABLED, NCAT };
-static const char *kCatName[NCAT] = {"Main", "Movement Mods", "Rig Mods", "Items", "Settings", "Enabled Mods"};
+enum Cat { MAIN, MOVEMENT, RIG, ITEMS, SETTINGS, ENABLED, POSES2, SHAPES, SPEED, GRAVITY, THEMES, SIZES, ITEMMULT, NCAT };
+static const char *kCatName[NCAT] = {"Main", "Movement Mods", "Rig Mods", "Items", "Settings", "Enabled Mods",
+                                     "Pose Pack", "Item Shapes", "Speed Levels", "Gravity Levels", "Themes", "Menu Sizes", "Item Multiplier"};
 enum Kind { OPEN, TOGGLE, ACTION };
 struct Item {
     Cat cat;
@@ -400,6 +628,13 @@ static Item g_items[] = {
     {MAIN, "Movement Mods", OPEN, MOVEMENT},
     {MAIN, "Rig Mods", OPEN, RIG},
     {MAIN, "Items", OPEN, ITEMS},
+    {MAIN, "Pose Pack", OPEN, POSES2},
+    {MAIN, "Item Shapes", OPEN, SHAPES},
+    {MAIN, "Speed Levels", OPEN, SPEED},
+    {MAIN, "Gravity Levels", OPEN, GRAVITY},
+    {MAIN, "Themes", OPEN, THEMES},
+    {MAIN, "Menu Sizes", OPEN, SIZES},
+    {MAIN, "Item Multiplier", OPEN, ITEMMULT},
     {MAIN, "Enabled Mods", OPEN, ENABLED},
 
     {MOVEMENT, "Exit Movement Mods", OPEN, MAIN},
@@ -462,8 +697,12 @@ static Item g_items[] = {
     {RIG, "Shrug", TOGGLE, MAIN, &g_danceSel[26], DancePicked},
     {RIG, "Conductor", TOGGLE, MAIN, &g_danceSel[27], DancePicked},
     {RIG, "Both Waving", TOGGLE, MAIN, &g_danceSel[28], DancePicked},
+    {RIG, "Dead", TOGGLE, MAIN, &g_danceSel[29], DancePicked},
+    {RIG, "Corpse", TOGGLE, MAIN, &g_danceSel[30], DancePicked},
+    {RIG, "Collapse", TOGGLE, MAIN, &g_danceSel[31], DancePicked},
 
     {ITEMS, "Exit Items", OPEN, MAIN},
+    {ITEMS, "Clear Item Queue", ACTION, MAIN, nullptr, ClearItemQueue},
     {ITEMS, "Spawn Item Gun", TOGGLE, MAIN, &f_itemGun},
     {ITEMS, "Duplicate Items (3x3)", ACTION, MAIN, nullptr, ArmDupe9},
     {ITEMS, "Duplicate Items (3x3x3)", ACTION, MAIN, nullptr, ArmDupe27},
@@ -485,6 +724,331 @@ static Item g_items[] = {
     {ITEMS, "Big Grid (5x5)", ACTION, MAIN, nullptr, ArmBigGrid},
     {ITEMS, "Spawn On Hand", TOGGLE, MAIN, &f_spawnOnHand},
 
+    {POSES2, "Exit Pose Pack", OPEN, MAIN},
+    {POSES2, "Pose Speed 0.5x", ACTION, MAIN, nullptr, PoseSpd0},
+    {POSES2, "Pose Speed 0.6x", ACTION, MAIN, nullptr, PoseSpd1},
+    {POSES2, "Pose Speed 0.7x", ACTION, MAIN, nullptr, PoseSpd2},
+    {POSES2, "Pose Speed 0.8x", ACTION, MAIN, nullptr, PoseSpd3},
+    {POSES2, "Pose Speed 0.9x", ACTION, MAIN, nullptr, PoseSpd4},
+    {POSES2, "Pose Speed 1x", ACTION, MAIN, nullptr, PoseSpd5},
+    {POSES2, "Pose Speed 1.2x", ACTION, MAIN, nullptr, PoseSpd6},
+    {POSES2, "Pose Speed 1.5x", ACTION, MAIN, nullptr, PoseSpd7},
+    {POSES2, "Pose Speed 1.8x", ACTION, MAIN, nullptr, PoseSpd8},
+    {POSES2, "Pose Speed 2x", ACTION, MAIN, nullptr, PoseSpd9},
+    {POSES2, "Circles Slow S Sync", TOGGLE, MAIN, &g_danceSel[32], DancePicked},
+    {POSES2, "Circles Slow S Alt", TOGGLE, MAIN, &g_danceSel[33], DancePicked},
+    {POSES2, "Circles Slow L Sync", TOGGLE, MAIN, &g_danceSel[34], DancePicked},
+    {POSES2, "Circles Slow L Alt", TOGGLE, MAIN, &g_danceSel[35], DancePicked},
+    {POSES2, "Circles Mid S Sync", TOGGLE, MAIN, &g_danceSel[36], DancePicked},
+    {POSES2, "Circles Mid S Alt", TOGGLE, MAIN, &g_danceSel[37], DancePicked},
+    {POSES2, "Circles Mid L Sync", TOGGLE, MAIN, &g_danceSel[38], DancePicked},
+    {POSES2, "Circles Mid L Alt", TOGGLE, MAIN, &g_danceSel[39], DancePicked},
+    {POSES2, "Circles Fast S Sync", TOGGLE, MAIN, &g_danceSel[40], DancePicked},
+    {POSES2, "Circles Fast S Alt", TOGGLE, MAIN, &g_danceSel[41], DancePicked},
+    {POSES2, "Circles Fast L Sync", TOGGLE, MAIN, &g_danceSel[42], DancePicked},
+    {POSES2, "Circles Fast L Alt", TOGGLE, MAIN, &g_danceSel[43], DancePicked},
+    {POSES2, "Figure 8 Slow S Sync", TOGGLE, MAIN, &g_danceSel[44], DancePicked},
+    {POSES2, "Figure 8 Slow S Alt", TOGGLE, MAIN, &g_danceSel[45], DancePicked},
+    {POSES2, "Figure 8 Slow L Sync", TOGGLE, MAIN, &g_danceSel[46], DancePicked},
+    {POSES2, "Figure 8 Slow L Alt", TOGGLE, MAIN, &g_danceSel[47], DancePicked},
+    {POSES2, "Figure 8 Mid S Sync", TOGGLE, MAIN, &g_danceSel[48], DancePicked},
+    {POSES2, "Figure 8 Mid S Alt", TOGGLE, MAIN, &g_danceSel[49], DancePicked},
+    {POSES2, "Figure 8 Mid L Sync", TOGGLE, MAIN, &g_danceSel[50], DancePicked},
+    {POSES2, "Figure 8 Mid L Alt", TOGGLE, MAIN, &g_danceSel[51], DancePicked},
+    {POSES2, "Figure 8 Fast S Sync", TOGGLE, MAIN, &g_danceSel[52], DancePicked},
+    {POSES2, "Figure 8 Fast S Alt", TOGGLE, MAIN, &g_danceSel[53], DancePicked},
+    {POSES2, "Figure 8 Fast L Sync", TOGGLE, MAIN, &g_danceSel[54], DancePicked},
+    {POSES2, "Figure 8 Fast L Alt", TOGGLE, MAIN, &g_danceSel[55], DancePicked},
+    {POSES2, "Sweeps Slow S Sync", TOGGLE, MAIN, &g_danceSel[56], DancePicked},
+    {POSES2, "Sweeps Slow S Alt", TOGGLE, MAIN, &g_danceSel[57], DancePicked},
+    {POSES2, "Sweeps Slow L Sync", TOGGLE, MAIN, &g_danceSel[58], DancePicked},
+    {POSES2, "Sweeps Slow L Alt", TOGGLE, MAIN, &g_danceSel[59], DancePicked},
+    {POSES2, "Sweeps Mid S Sync", TOGGLE, MAIN, &g_danceSel[60], DancePicked},
+    {POSES2, "Sweeps Mid S Alt", TOGGLE, MAIN, &g_danceSel[61], DancePicked},
+    {POSES2, "Sweeps Mid L Sync", TOGGLE, MAIN, &g_danceSel[62], DancePicked},
+    {POSES2, "Sweeps Mid L Alt", TOGGLE, MAIN, &g_danceSel[63], DancePicked},
+    {POSES2, "Sweeps Fast S Sync", TOGGLE, MAIN, &g_danceSel[64], DancePicked},
+    {POSES2, "Sweeps Fast S Alt", TOGGLE, MAIN, &g_danceSel[65], DancePicked},
+    {POSES2, "Sweeps Fast L Sync", TOGGLE, MAIN, &g_danceSel[66], DancePicked},
+    {POSES2, "Sweeps Fast L Alt", TOGGLE, MAIN, &g_danceSel[67], DancePicked},
+    {POSES2, "Pumps Slow S Sync", TOGGLE, MAIN, &g_danceSel[68], DancePicked},
+    {POSES2, "Pumps Slow S Alt", TOGGLE, MAIN, &g_danceSel[69], DancePicked},
+    {POSES2, "Pumps Slow L Sync", TOGGLE, MAIN, &g_danceSel[70], DancePicked},
+    {POSES2, "Pumps Slow L Alt", TOGGLE, MAIN, &g_danceSel[71], DancePicked},
+    {POSES2, "Pumps Mid S Sync", TOGGLE, MAIN, &g_danceSel[72], DancePicked},
+    {POSES2, "Pumps Mid S Alt", TOGGLE, MAIN, &g_danceSel[73], DancePicked},
+    {POSES2, "Pumps Mid L Sync", TOGGLE, MAIN, &g_danceSel[74], DancePicked},
+    {POSES2, "Pumps Mid L Alt", TOGGLE, MAIN, &g_danceSel[75], DancePicked},
+    {POSES2, "Pumps Fast S Sync", TOGGLE, MAIN, &g_danceSel[76], DancePicked},
+    {POSES2, "Pumps Fast S Alt", TOGGLE, MAIN, &g_danceSel[77], DancePicked},
+    {POSES2, "Pumps Fast L Sync", TOGGLE, MAIN, &g_danceSel[78], DancePicked},
+    {POSES2, "Pumps Fast L Alt", TOGGLE, MAIN, &g_danceSel[79], DancePicked},
+    {POSES2, "Bobs Slow S Sync", TOGGLE, MAIN, &g_danceSel[80], DancePicked},
+    {POSES2, "Bobs Slow S Alt", TOGGLE, MAIN, &g_danceSel[81], DancePicked},
+    {POSES2, "Bobs Slow L Sync", TOGGLE, MAIN, &g_danceSel[82], DancePicked},
+    {POSES2, "Bobs Slow L Alt", TOGGLE, MAIN, &g_danceSel[83], DancePicked},
+    {POSES2, "Bobs Mid S Sync", TOGGLE, MAIN, &g_danceSel[84], DancePicked},
+    {POSES2, "Bobs Mid S Alt", TOGGLE, MAIN, &g_danceSel[85], DancePicked},
+    {POSES2, "Bobs Mid L Sync", TOGGLE, MAIN, &g_danceSel[86], DancePicked},
+    {POSES2, "Bobs Mid L Alt", TOGGLE, MAIN, &g_danceSel[87], DancePicked},
+    {POSES2, "Bobs Fast S Sync", TOGGLE, MAIN, &g_danceSel[88], DancePicked},
+    {POSES2, "Bobs Fast S Alt", TOGGLE, MAIN, &g_danceSel[89], DancePicked},
+    {POSES2, "Bobs Fast L Sync", TOGGLE, MAIN, &g_danceSel[90], DancePicked},
+    {POSES2, "Bobs Fast L Alt", TOGGLE, MAIN, &g_danceSel[91], DancePicked},
+    {POSES2, "Flaps Slow S Sync", TOGGLE, MAIN, &g_danceSel[92], DancePicked},
+    {POSES2, "Flaps Slow S Alt", TOGGLE, MAIN, &g_danceSel[93], DancePicked},
+    {POSES2, "Flaps Slow L Sync", TOGGLE, MAIN, &g_danceSel[94], DancePicked},
+    {POSES2, "Flaps Slow L Alt", TOGGLE, MAIN, &g_danceSel[95], DancePicked},
+    {POSES2, "Flaps Mid S Sync", TOGGLE, MAIN, &g_danceSel[96], DancePicked},
+    {POSES2, "Flaps Mid S Alt", TOGGLE, MAIN, &g_danceSel[97], DancePicked},
+    {POSES2, "Flaps Mid L Sync", TOGGLE, MAIN, &g_danceSel[98], DancePicked},
+    {POSES2, "Flaps Mid L Alt", TOGGLE, MAIN, &g_danceSel[99], DancePicked},
+    {POSES2, "Flaps Fast S Sync", TOGGLE, MAIN, &g_danceSel[100], DancePicked},
+    {POSES2, "Flaps Fast S Alt", TOGGLE, MAIN, &g_danceSel[101], DancePicked},
+    {POSES2, "Flaps Fast L Sync", TOGGLE, MAIN, &g_danceSel[102], DancePicked},
+    {POSES2, "Flaps Fast L Alt", TOGGLE, MAIN, &g_danceSel[103], DancePicked},
+    {POSES2, "Spins Slow S Sync", TOGGLE, MAIN, &g_danceSel[104], DancePicked},
+    {POSES2, "Spins Slow S Alt", TOGGLE, MAIN, &g_danceSel[105], DancePicked},
+    {POSES2, "Spins Slow L Sync", TOGGLE, MAIN, &g_danceSel[106], DancePicked},
+    {POSES2, "Spins Slow L Alt", TOGGLE, MAIN, &g_danceSel[107], DancePicked},
+    {POSES2, "Spins Mid S Sync", TOGGLE, MAIN, &g_danceSel[108], DancePicked},
+    {POSES2, "Spins Mid S Alt", TOGGLE, MAIN, &g_danceSel[109], DancePicked},
+    {POSES2, "Spins Mid L Sync", TOGGLE, MAIN, &g_danceSel[110], DancePicked},
+    {POSES2, "Spins Mid L Alt", TOGGLE, MAIN, &g_danceSel[111], DancePicked},
+    {POSES2, "Spins Fast S Sync", TOGGLE, MAIN, &g_danceSel[112], DancePicked},
+    {POSES2, "Spins Fast S Alt", TOGGLE, MAIN, &g_danceSel[113], DancePicked},
+    {POSES2, "Spins Fast L Sync", TOGGLE, MAIN, &g_danceSel[114], DancePicked},
+    {POSES2, "Spins Fast L Alt", TOGGLE, MAIN, &g_danceSel[115], DancePicked},
+    {POSES2, "Waves Slow S Sync", TOGGLE, MAIN, &g_danceSel[116], DancePicked},
+    {POSES2, "Waves Slow S Alt", TOGGLE, MAIN, &g_danceSel[117], DancePicked},
+    {POSES2, "Waves Slow L Sync", TOGGLE, MAIN, &g_danceSel[118], DancePicked},
+    {POSES2, "Waves Slow L Alt", TOGGLE, MAIN, &g_danceSel[119], DancePicked},
+    {POSES2, "Waves Mid S Sync", TOGGLE, MAIN, &g_danceSel[120], DancePicked},
+    {POSES2, "Waves Mid S Alt", TOGGLE, MAIN, &g_danceSel[121], DancePicked},
+    {POSES2, "Waves Mid L Sync", TOGGLE, MAIN, &g_danceSel[122], DancePicked},
+    {POSES2, "Waves Mid L Alt", TOGGLE, MAIN, &g_danceSel[123], DancePicked},
+    {POSES2, "Waves Fast S Sync", TOGGLE, MAIN, &g_danceSel[124], DancePicked},
+    {POSES2, "Waves Fast S Alt", TOGGLE, MAIN, &g_danceSel[125], DancePicked},
+    {POSES2, "Waves Fast L Sync", TOGGLE, MAIN, &g_danceSel[126], DancePicked},
+    {POSES2, "Waves Fast L Alt", TOGGLE, MAIN, &g_danceSel[127], DancePicked},
+    {SHAPES, "Exit Item Shapes", OPEN, MAIN},
+    {SHAPES, "Ring 3", ACTION, MAIN, nullptr, ArmS0},
+    {SHAPES, "Ring 4", ACTION, MAIN, nullptr, ArmS1},
+    {SHAPES, "Ring 5", ACTION, MAIN, nullptr, ArmS2},
+    {SHAPES, "Ring 6", ACTION, MAIN, nullptr, ArmS3},
+    {SHAPES, "Ring 7", ACTION, MAIN, nullptr, ArmS4},
+    {SHAPES, "Ring 8", ACTION, MAIN, nullptr, ArmS5},
+    {SHAPES, "Ring 9", ACTION, MAIN, nullptr, ArmS6},
+    {SHAPES, "Ring 10", ACTION, MAIN, nullptr, ArmS7},
+    {SHAPES, "Ring 11", ACTION, MAIN, nullptr, ArmS8},
+    {SHAPES, "Ring 12", ACTION, MAIN, nullptr, ArmS9},
+    {SHAPES, "Ring 13", ACTION, MAIN, nullptr, ArmS10},
+    {SHAPES, "Ring 14", ACTION, MAIN, nullptr, ArmS11},
+    {SHAPES, "Ring 15", ACTION, MAIN, nullptr, ArmS12},
+    {SHAPES, "Ring 16", ACTION, MAIN, nullptr, ArmS13},
+    {SHAPES, "Star 4 Point", ACTION, MAIN, nullptr, ArmS14},
+    {SHAPES, "Star 5 Point", ACTION, MAIN, nullptr, ArmS15},
+    {SHAPES, "Star 6 Point", ACTION, MAIN, nullptr, ArmS16},
+    {SHAPES, "Star 7 Point", ACTION, MAIN, nullptr, ArmS17},
+    {SHAPES, "Star 8 Point", ACTION, MAIN, nullptr, ArmS18},
+    {SHAPES, "Star 9 Point", ACTION, MAIN, nullptr, ArmS19},
+    {SHAPES, "Star 10 Point", ACTION, MAIN, nullptr, ArmS20},
+    {SHAPES, "Star 11 Point", ACTION, MAIN, nullptr, ArmS21},
+    {SHAPES, "Star 12 Point", ACTION, MAIN, nullptr, ArmS22},
+    {SHAPES, "Row 3", ACTION, MAIN, nullptr, ArmS23},
+    {SHAPES, "Row 4", ACTION, MAIN, nullptr, ArmS24},
+    {SHAPES, "Row 5", ACTION, MAIN, nullptr, ArmS25},
+    {SHAPES, "Row 6", ACTION, MAIN, nullptr, ArmS26},
+    {SHAPES, "Row 7", ACTION, MAIN, nullptr, ArmS27},
+    {SHAPES, "Row 8", ACTION, MAIN, nullptr, ArmS28},
+    {SHAPES, "Row 9", ACTION, MAIN, nullptr, ArmS29},
+    {SHAPES, "Row 10", ACTION, MAIN, nullptr, ArmS30},
+    {SHAPES, "Row 11", ACTION, MAIN, nullptr, ArmS31},
+    {SHAPES, "Row 12", ACTION, MAIN, nullptr, ArmS32},
+    {SHAPES, "Grid 2x3", ACTION, MAIN, nullptr, ArmS33},
+    {SHAPES, "Grid 2x4", ACTION, MAIN, nullptr, ArmS34},
+    {SHAPES, "Grid 2x5", ACTION, MAIN, nullptr, ArmS35},
+    {SHAPES, "Grid 2x6", ACTION, MAIN, nullptr, ArmS36},
+    {SHAPES, "Grid 3x4", ACTION, MAIN, nullptr, ArmS37},
+    {SHAPES, "Grid 3x5", ACTION, MAIN, nullptr, ArmS38},
+    {SHAPES, "Grid 3x6", ACTION, MAIN, nullptr, ArmS39},
+    {SHAPES, "Grid 4x5", ACTION, MAIN, nullptr, ArmS40},
+    {SHAPES, "Grid 4x6", ACTION, MAIN, nullptr, ArmS41},
+    {SHAPES, "Spiral S", ACTION, MAIN, nullptr, ArmS42},
+    {SHAPES, "Spiral M", ACTION, MAIN, nullptr, ArmS43},
+    {SHAPES, "Spiral L", ACTION, MAIN, nullptr, ArmS44},
+    {SHAPES, "Box 2x2x2", ACTION, MAIN, nullptr, ArmS45},
+    {SHAPES, "Box 3x2x3", ACTION, MAIN, nullptr, ArmS46},
+    {SHAPES, "Box 2x3x2", ACTION, MAIN, nullptr, ArmS47},
+    {SHAPES, "Box 3x3x2", ACTION, MAIN, nullptr, ArmS48},
+    {SHAPES, "Box 2x2x4", ACTION, MAIN, nullptr, ArmS49},
+    {SHAPES, "Box 4x2x3", ACTION, MAIN, nullptr, ArmS50},
+    {SHAPES, "Box 3x2x4", ACTION, MAIN, nullptr, ArmS51},
+    {SHAPES, "Box 2x4x3", ACTION, MAIN, nullptr, ArmS52},
+    {SHAPES, "Wall 3x2", ACTION, MAIN, nullptr, ArmS53},
+    {SHAPES, "Wall 4x2", ACTION, MAIN, nullptr, ArmS54},
+    {SHAPES, "Wall 5x2", ACTION, MAIN, nullptr, ArmS55},
+    {SHAPES, "Wall 6x2", ACTION, MAIN, nullptr, ArmS56},
+    {SHAPES, "Wall 3x3", ACTION, MAIN, nullptr, ArmS57},
+    {SHAPES, "Wall 4x3", ACTION, MAIN, nullptr, ArmS58},
+    {SHAPES, "Wall 6x3", ACTION, MAIN, nullptr, ArmS59},
+    {SHAPES, "Wall 4x4", ACTION, MAIN, nullptr, ArmS60},
+    {SHAPES, "Wall 5x4", ACTION, MAIN, nullptr, ArmS61},
+    {SHAPES, "Wall 6x4", ACTION, MAIN, nullptr, ArmS62},
+    {SHAPES, "Tower 2", ACTION, MAIN, nullptr, ArmS63},
+    {SHAPES, "Tower 3", ACTION, MAIN, nullptr, ArmS64},
+    {SHAPES, "Tower 4", ACTION, MAIN, nullptr, ArmS65},
+    {SHAPES, "Tower 5", ACTION, MAIN, nullptr, ArmS66},
+    {SHAPES, "Tower 6", ACTION, MAIN, nullptr, ArmS67},
+    {SHAPES, "Tower 7", ACTION, MAIN, nullptr, ArmS68},
+    {SHAPES, "Tower 8", ACTION, MAIN, nullptr, ArmS69},
+    {SHAPES, "Tower 9", ACTION, MAIN, nullptr, ArmS70},
+    {SHAPES, "Tower 10", ACTION, MAIN, nullptr, ArmS71},
+    {SHAPES, "Tower 11", ACTION, MAIN, nullptr, ArmS72},
+    {SHAPES, "Tower 12", ACTION, MAIN, nullptr, ArmS73},
+    {SHAPES, "Zigzag 6", ACTION, MAIN, nullptr, ArmS74},
+    {SHAPES, "Zigzag 8", ACTION, MAIN, nullptr, ArmS75},
+    {SHAPES, "Zigzag 10", ACTION, MAIN, nullptr, ArmS76},
+    {SHAPES, "Zigzag 12", ACTION, MAIN, nullptr, ArmS77},
+    {SHAPES, "Zigzag 16", ACTION, MAIN, nullptr, ArmS78},
+    {SHAPES, "Zigzag 20", ACTION, MAIN, nullptr, ArmS79},
+    {SHAPES, "Plus 2", ACTION, MAIN, nullptr, ArmS80},
+    {SHAPES, "Plus 3", ACTION, MAIN, nullptr, ArmS81},
+    {SHAPES, "Plus 4", ACTION, MAIN, nullptr, ArmS82},
+    {SHAPES, "Plus 5", ACTION, MAIN, nullptr, ArmS83},
+    {SHAPES, "Plus 6", ACTION, MAIN, nullptr, ArmS84},
+    {SHAPES, "Heart 12", ACTION, MAIN, nullptr, ArmS85},
+    {SHAPES, "Heart 20", ACTION, MAIN, nullptr, ArmS86},
+    {SHAPES, "Heart 24", ACTION, MAIN, nullptr, ArmS87},
+    {SHAPES, "Helix 10", ACTION, MAIN, nullptr, ArmS88},
+    {SHAPES, "Helix 14", ACTION, MAIN, nullptr, ArmS89},
+    {SHAPES, "Helix 18", ACTION, MAIN, nullptr, ArmS90},
+    {SHAPES, "Helix 22", ACTION, MAIN, nullptr, ArmS91},
+    {SPEED, "Exit Speed Levels", OPEN, MAIN},
+    {SPEED, "Fly Speed Normal", ACTION, MAIN, nullptr, FlyNormal},
+    {SPEED, "Jump Normal", ACTION, MAIN, nullptr, JumpNormal},
+    {SPEED, "Fly Speed 1", ACTION, MAIN, nullptr, FlyLvl1},
+    {SPEED, "Fly Speed 2", ACTION, MAIN, nullptr, FlyLvl2},
+    {SPEED, "Fly Speed 3", ACTION, MAIN, nullptr, FlyLvl3},
+    {SPEED, "Fly Speed 4", ACTION, MAIN, nullptr, FlyLvl4},
+    {SPEED, "Fly Speed 5", ACTION, MAIN, nullptr, FlyLvl5},
+    {SPEED, "Fly Speed 6", ACTION, MAIN, nullptr, FlyLvl6},
+    {SPEED, "Fly Speed 7", ACTION, MAIN, nullptr, FlyLvl7},
+    {SPEED, "Fly Speed 8", ACTION, MAIN, nullptr, FlyLvl8},
+    {SPEED, "Fly Speed 9", ACTION, MAIN, nullptr, FlyLvl9},
+    {SPEED, "Fly Speed 10", ACTION, MAIN, nullptr, FlyLvl10},
+    {SPEED, "Fly Speed 11", ACTION, MAIN, nullptr, FlyLvl11},
+    {SPEED, "Fly Speed 12", ACTION, MAIN, nullptr, FlyLvl12},
+    {SPEED, "Fly Speed 13", ACTION, MAIN, nullptr, FlyLvl13},
+    {SPEED, "Fly Speed 14", ACTION, MAIN, nullptr, FlyLvl14},
+    {SPEED, "Fly Speed 15", ACTION, MAIN, nullptr, FlyLvl15},
+    {SPEED, "Fly Speed 16", ACTION, MAIN, nullptr, FlyLvl16},
+    {SPEED, "Fly Speed 17", ACTION, MAIN, nullptr, FlyLvl17},
+    {SPEED, "Fly Speed 18", ACTION, MAIN, nullptr, FlyLvl18},
+    {SPEED, "Fly Speed 19", ACTION, MAIN, nullptr, FlyLvl19},
+    {SPEED, "Fly Speed 20", ACTION, MAIN, nullptr, FlyLvl20},
+    {SPEED, "Jump Level 1", ACTION, MAIN, nullptr, JumpLvl1},
+    {SPEED, "Jump Level 2", ACTION, MAIN, nullptr, JumpLvl2},
+    {SPEED, "Jump Level 3", ACTION, MAIN, nullptr, JumpLvl3},
+    {SPEED, "Jump Level 4", ACTION, MAIN, nullptr, JumpLvl4},
+    {SPEED, "Jump Level 5", ACTION, MAIN, nullptr, JumpLvl5},
+    {SPEED, "Jump Level 6", ACTION, MAIN, nullptr, JumpLvl6},
+    {SPEED, "Jump Level 7", ACTION, MAIN, nullptr, JumpLvl7},
+    {SPEED, "Jump Level 8", ACTION, MAIN, nullptr, JumpLvl8},
+    {SPEED, "Jump Level 9", ACTION, MAIN, nullptr, JumpLvl9},
+    {SPEED, "Jump Level 10", ACTION, MAIN, nullptr, JumpLvl10},
+    {SPEED, "Jump Level 11", ACTION, MAIN, nullptr, JumpLvl11},
+    {SPEED, "Jump Level 12", ACTION, MAIN, nullptr, JumpLvl12},
+    {SPEED, "Jump Level 13", ACTION, MAIN, nullptr, JumpLvl13},
+    {SPEED, "Jump Level 14", ACTION, MAIN, nullptr, JumpLvl14},
+    {SPEED, "Jump Level 15", ACTION, MAIN, nullptr, JumpLvl15},
+    {SPEED, "Jump Level 16", ACTION, MAIN, nullptr, JumpLvl16},
+    {SPEED, "Jump Level 17", ACTION, MAIN, nullptr, JumpLvl17},
+    {SPEED, "Jump Level 18", ACTION, MAIN, nullptr, JumpLvl18},
+    {SPEED, "Jump Level 19", ACTION, MAIN, nullptr, JumpLvl19},
+    {SPEED, "Jump Level 20", ACTION, MAIN, nullptr, JumpLvl20},
+    {SPEED, "Dash Power 1", ACTION, MAIN, nullptr, DashLvl1},
+    {SPEED, "Dash Power 2", ACTION, MAIN, nullptr, DashLvl2},
+    {SPEED, "Dash Power 3", ACTION, MAIN, nullptr, DashLvl3},
+    {SPEED, "Dash Power 4", ACTION, MAIN, nullptr, DashLvl4},
+    {SPEED, "Dash Power 5", ACTION, MAIN, nullptr, DashLvl5},
+    {SPEED, "Dash Power 6", ACTION, MAIN, nullptr, DashLvl6},
+    {SPEED, "Dash Power 7", ACTION, MAIN, nullptr, DashLvl7},
+    {SPEED, "Dash Power 8", ACTION, MAIN, nullptr, DashLvl8},
+    {SPEED, "Dash Power 9", ACTION, MAIN, nullptr, DashLvl9},
+    {SPEED, "Dash Power 10", ACTION, MAIN, nullptr, DashLvl10},
+    {GRAVITY, "Exit Gravity Levels", OPEN, MAIN},
+    {GRAVITY, "Gravity Normal", ACTION, MAIN, nullptr, GravNormal},
+    {GRAVITY, "Gravity 0%", ACTION, MAIN, nullptr, GravLvl0},
+    {GRAVITY, "Gravity 10%", ACTION, MAIN, nullptr, GravLvl10},
+    {GRAVITY, "Gravity 20%", ACTION, MAIN, nullptr, GravLvl20},
+    {GRAVITY, "Gravity 30%", ACTION, MAIN, nullptr, GravLvl30},
+    {GRAVITY, "Gravity 40%", ACTION, MAIN, nullptr, GravLvl40},
+    {GRAVITY, "Gravity 50%", ACTION, MAIN, nullptr, GravLvl50},
+    {GRAVITY, "Gravity 60%", ACTION, MAIN, nullptr, GravLvl60},
+    {GRAVITY, "Gravity 70%", ACTION, MAIN, nullptr, GravLvl70},
+    {GRAVITY, "Gravity 80%", ACTION, MAIN, nullptr, GravLvl80},
+    {GRAVITY, "Gravity 90%", ACTION, MAIN, nullptr, GravLvl90},
+    {THEMES, "Exit Themes", OPEN, MAIN},
+    {THEMES, "Ruby", ACTION, MAIN, nullptr, ThemeSet0},
+    {THEMES, "Scarlet", ACTION, MAIN, nullptr, ThemeSet1},
+    {THEMES, "Coral", ACTION, MAIN, nullptr, ThemeSet2},
+    {THEMES, "Ember", ACTION, MAIN, nullptr, ThemeSet3},
+    {THEMES, "Amber", ACTION, MAIN, nullptr, ThemeSet4},
+    {THEMES, "Honey", ACTION, MAIN, nullptr, ThemeSet5},
+    {THEMES, "Lemon", ACTION, MAIN, nullptr, ThemeSet6},
+    {THEMES, "Lime", ACTION, MAIN, nullptr, ThemeSet7},
+    {THEMES, "Fern", ACTION, MAIN, nullptr, ThemeSet8},
+    {THEMES, "Jade", ACTION, MAIN, nullptr, ThemeSet9},
+    {THEMES, "Emerald", ACTION, MAIN, nullptr, ThemeSet10},
+    {THEMES, "Spring", ACTION, MAIN, nullptr, ThemeSet11},
+    {THEMES, "Teal", ACTION, MAIN, nullptr, ThemeSet12},
+    {THEMES, "Aqua", ACTION, MAIN, nullptr, ThemeSet13},
+    {THEMES, "Azure", ACTION, MAIN, nullptr, ThemeSet14},
+    {THEMES, "Sky", ACTION, MAIN, nullptr, ThemeSet15},
+    {THEMES, "Cobalt", ACTION, MAIN, nullptr, ThemeSet16},
+    {THEMES, "Sapphire", ACTION, MAIN, nullptr, ThemeSet17},
+    {THEMES, "Indigo", ACTION, MAIN, nullptr, ThemeSet18},
+    {THEMES, "Violet", ACTION, MAIN, nullptr, ThemeSet19},
+    {THEMES, "Grape", ACTION, MAIN, nullptr, ThemeSet20},
+    {THEMES, "Orchid", ACTION, MAIN, nullptr, ThemeSet21},
+    {THEMES, "Magenta", ACTION, MAIN, nullptr, ThemeSet22},
+    {THEMES, "Fuchsia", ACTION, MAIN, nullptr, ThemeSet23},
+    {THEMES, "Rose", ACTION, MAIN, nullptr, ThemeSet24},
+    {THEMES, "Blush", ACTION, MAIN, nullptr, ThemeSet25},
+    {THEMES, "Cherry", ACTION, MAIN, nullptr, ThemeSet26},
+    {THEMES, "Cranberry", ACTION, MAIN, nullptr, ThemeSet27},
+    {THEMES, "Peach", ACTION, MAIN, nullptr, ThemeSet28},
+    {THEMES, "Mango", ACTION, MAIN, nullptr, ThemeSet29},
+    {THEMES, "Moss", ACTION, MAIN, nullptr, ThemeSet30},
+    {THEMES, "Pine", ACTION, MAIN, nullptr, ThemeSet31},
+    {THEMES, "Ocean", ACTION, MAIN, nullptr, ThemeSet32},
+    {THEMES, "Ice", ACTION, MAIN, nullptr, ThemeSet33},
+    {THEMES, "Lavender", ACTION, MAIN, nullptr, ThemeSet34},
+    {THEMES, "Plum", ACTION, MAIN, nullptr, ThemeSet35},
+    {SIZES, "Exit Menu Sizes", OPEN, MAIN},
+    {SIZES, "Menu Size 50%", ACTION, MAIN, nullptr, SizeSet0},
+    {SIZES, "Menu Size 60%", ACTION, MAIN, nullptr, SizeSet1},
+    {SIZES, "Menu Size 70%", ACTION, MAIN, nullptr, SizeSet2},
+    {SIZES, "Menu Size 80%", ACTION, MAIN, nullptr, SizeSet3},
+    {SIZES, "Menu Size 90%", ACTION, MAIN, nullptr, SizeSet4},
+    {SIZES, "Menu Size 110%", ACTION, MAIN, nullptr, SizeSet5},
+    {SIZES, "Menu Size 125%", ACTION, MAIN, nullptr, SizeSet6},
+    {SIZES, "Menu Size 150%", ACTION, MAIN, nullptr, SizeSet7},
+    {SIZES, "Menu Size 175%", ACTION, MAIN, nullptr, SizeSet8},
+    {SIZES, "Menu Size 200%", ACTION, MAIN, nullptr, SizeSet9},
+    {ITEMMULT, "Exit Item Multiplier", OPEN, MAIN},
+    {ITEMMULT, "Multiplier Off (x1)", ACTION, MAIN, nullptr, ItemMultOff},
+    {ITEMMULT, "Multiplier x2", ACTION, MAIN, nullptr, ItemMult2},
+    {ITEMMULT, "Multiplier x3", ACTION, MAIN, nullptr, ItemMult3},
+    {ITEMMULT, "Multiplier x4", ACTION, MAIN, nullptr, ItemMult4},
+    {ITEMMULT, "Multiplier x5", ACTION, MAIN, nullptr, ItemMult5},
+    {ITEMMULT, "Multiplier x6", ACTION, MAIN, nullptr, ItemMult6},
+    {ITEMMULT, "Multiplier x8", ACTION, MAIN, nullptr, ItemMult8},
+    {ITEMMULT, "Multiplier x10", ACTION, MAIN, nullptr, ItemMult10},
+    {ITEMMULT, "Multiplier x12", ACTION, MAIN, nullptr, ItemMult12},
+    {ITEMMULT, "Multiplier x16", ACTION, MAIN, nullptr, ItemMult16},
+    {ITEMMULT, "Multiplier x20", ACTION, MAIN, nullptr, ItemMult20},
     {SETTINGS, "Exit Settings", OPEN, MAIN},
     {SETTINGS, "Change Pointer Position", ACTION, MAIN, nullptr, NextPointer},
     {SETTINGS, "Iron Man Speed", ACTION, MAIN, nullptr, NextIronSpeed},
@@ -554,6 +1118,9 @@ static const struct { const char *label, *tip; } kTips[] = {
     {"Clap", "Hands clap in front of you. Hold left trigger."},
     {"Hands Up", "Both arms up and swaying. Hold left trigger."},
     {"Sprinkler", "One hand sweeps out and back. Hold left trigger."},
+    {"Dead", "Both arms hang limp at your sides. Hold left trigger."},
+    {"Collapse", "Arms rise, then drop and go limp, over and over. Hold left trigger."},
+    {"Corpse", "Arms crossed over your chest, still. Hold left trigger."},
     {"Robot", "Stiff robot poses that snap from one to the next. Hold left trigger."},
     {"Heart", "Hands pulse together in front of your chest. Hold left trigger."},
     {"Flex", "Arms bent, fists by your head. Hold left trigger."},
@@ -591,6 +1158,8 @@ static const struct { const char *label, *tip; } kTips[] = {
     {"Duplicate Items (Circle)", "12 of the item in your left hand form a ring in front of you."},
     {"Big Square (4x4)", "16 of the item in your left hand form a square in front of you."},
     {"Big Triangle", "15 of the item in your left hand form a triangle in front of you."},
+    {"Clear Item Queue", "Stops the items of your own that are still waiting to spawn."},
+    {"Multiplier Off (x1)", "Spawn On Hand makes one item again."},
     {"Spawn On Hand", "Each right trigger spawns the item from your left hand at your right hand."},
     {"Wave", "Waves one hand, the other on your hip. Hold left trigger."},
     {"Helicopter", "Both arms spin around you. Hold left trigger."},
@@ -627,6 +1196,42 @@ static const Theme kThemes[] = {
     {"Cyan",   Color(0.10f, 0.85f, 0.90f, 1), Color(0.05f, 0.60f, 0.75f, 1), Color(0.05f, 0.40f, 0.50f, 1), Color(0.02f, 0.20f, 0.26f, 1), Color(0.75f, 1.0f, 1.0f, 1)},
     {"Mint",   Color(0.50f, 1.0f, 0.80f, 1), Color(0.30f, 0.85f, 0.65f, 1), Color(0.18f, 0.55f, 0.42f, 1), Color(0.08f, 0.28f, 0.21f, 1), Color(0.85f, 1.0f, 0.95f, 1)},
     {"Sunset", Color(1.0f, 0.35f, 0.35f, 1), Color(0.60f, 0.25f, 0.85f, 1), Color(0.50f, 0.15f, 0.40f, 1), Color(0.25f, 0.07f, 0.22f, 1), Color(1.0f, 0.80f, 0.60f, 1)},
+    {"Ruby", Color(0.95f, 0.24f, 0.24f, 1), Color(0.75f, 0.20f, 0.07f, 1), Color(0.45f, 0.09f, 0.09f, 1), Color(0.22f, 0.03f, 0.03f, 1), Color(1.00f, 0.65f, 0.65f, 1)},
+    {"Scarlet", Color(0.95f, 0.36f, 0.24f, 1), Color(0.75f, 0.31f, 0.07f, 1), Color(0.45f, 0.15f, 0.09f, 1), Color(0.22f, 0.06f, 0.03f, 1), Color(1.00f, 0.71f, 0.65f, 1)},
+    {"Coral", Color(0.95f, 0.47f, 0.24f, 1), Color(0.75f, 0.42f, 0.07f, 1), Color(0.45f, 0.21f, 0.09f, 1), Color(0.22f, 0.10f, 0.03f, 1), Color(1.00f, 0.77f, 0.65f, 1)},
+    {"Ember", Color(0.95f, 0.59f, 0.24f, 1), Color(0.75f, 0.53f, 0.07f, 1), Color(0.45f, 0.27f, 0.09f, 1), Color(0.22f, 0.13f, 0.03f, 1), Color(1.00f, 0.82f, 0.65f, 1)},
+    {"Amber", Color(0.95f, 0.71f, 0.24f, 1), Color(0.75f, 0.65f, 0.07f, 1), Color(0.45f, 0.33f, 0.09f, 1), Color(0.22f, 0.16f, 0.03f, 1), Color(1.00f, 0.88f, 0.65f, 1)},
+    {"Honey", Color(0.95f, 0.83f, 0.24f, 1), Color(0.74f, 0.75f, 0.07f, 1), Color(0.45f, 0.39f, 0.09f, 1), Color(0.22f, 0.19f, 0.03f, 1), Color(1.00f, 0.94f, 0.65f, 1)},
+    {"Lemon", Color(0.95f, 0.95f, 0.24f, 1), Color(0.63f, 0.75f, 0.07f, 1), Color(0.45f, 0.45f, 0.09f, 1), Color(0.22f, 0.22f, 0.03f, 1), Color(1.00f, 1.00f, 0.65f, 1)},
+    {"Lime", Color(0.83f, 0.95f, 0.24f, 1), Color(0.52f, 0.75f, 0.07f, 1), Color(0.39f, 0.45f, 0.09f, 1), Color(0.19f, 0.22f, 0.03f, 1), Color(0.94f, 1.00f, 0.65f, 1)},
+    {"Fern", Color(0.71f, 0.95f, 0.24f, 1), Color(0.40f, 0.75f, 0.07f, 1), Color(0.33f, 0.45f, 0.09f, 1), Color(0.16f, 0.22f, 0.03f, 1), Color(0.88f, 1.00f, 0.65f, 1)},
+    {"Jade", Color(0.59f, 0.95f, 0.24f, 1), Color(0.29f, 0.75f, 0.07f, 1), Color(0.27f, 0.45f, 0.09f, 1), Color(0.13f, 0.22f, 0.03f, 1), Color(0.82f, 1.00f, 0.65f, 1)},
+    {"Emerald", Color(0.47f, 0.95f, 0.24f, 1), Color(0.18f, 0.75f, 0.07f, 1), Color(0.21f, 0.45f, 0.09f, 1), Color(0.10f, 0.22f, 0.03f, 1), Color(0.77f, 1.00f, 0.65f, 1)},
+    {"Spring", Color(0.36f, 0.95f, 0.24f, 1), Color(0.07f, 0.75f, 0.08f, 1), Color(0.15f, 0.45f, 0.09f, 1), Color(0.06f, 0.22f, 0.03f, 1), Color(0.71f, 1.00f, 0.65f, 1)},
+    {"Teal", Color(0.24f, 0.95f, 0.24f, 1), Color(0.07f, 0.75f, 0.20f, 1), Color(0.09f, 0.45f, 0.09f, 1), Color(0.03f, 0.22f, 0.03f, 1), Color(0.65f, 1.00f, 0.65f, 1)},
+    {"Aqua", Color(0.24f, 0.95f, 0.36f, 1), Color(0.07f, 0.75f, 0.31f, 1), Color(0.09f, 0.45f, 0.15f, 1), Color(0.03f, 0.22f, 0.06f, 1), Color(0.65f, 1.00f, 0.71f, 1)},
+    {"Azure", Color(0.24f, 0.95f, 0.48f, 1), Color(0.07f, 0.75f, 0.42f, 1), Color(0.09f, 0.45f, 0.21f, 1), Color(0.03f, 0.22f, 0.10f, 1), Color(0.65f, 1.00f, 0.77f, 1)},
+    {"Sky", Color(0.24f, 0.95f, 0.59f, 1), Color(0.07f, 0.75f, 0.53f, 1), Color(0.09f, 0.45f, 0.27f, 1), Color(0.03f, 0.22f, 0.13f, 1), Color(0.65f, 1.00f, 0.82f, 1)},
+    {"Cobalt", Color(0.24f, 0.95f, 0.71f, 1), Color(0.07f, 0.75f, 0.65f, 1), Color(0.09f, 0.45f, 0.33f, 1), Color(0.03f, 0.22f, 0.16f, 1), Color(0.65f, 1.00f, 0.88f, 1)},
+    {"Sapphire", Color(0.24f, 0.95f, 0.83f, 1), Color(0.07f, 0.74f, 0.75f, 1), Color(0.09f, 0.45f, 0.39f, 1), Color(0.03f, 0.22f, 0.19f, 1), Color(0.65f, 1.00f, 0.94f, 1)},
+    {"Indigo", Color(0.24f, 0.95f, 0.95f, 1), Color(0.07f, 0.63f, 0.75f, 1), Color(0.09f, 0.45f, 0.45f, 1), Color(0.03f, 0.22f, 0.22f, 1), Color(0.65f, 1.00f, 1.00f, 1)},
+    {"Violet", Color(0.24f, 0.83f, 0.95f, 1), Color(0.07f, 0.52f, 0.75f, 1), Color(0.09f, 0.39f, 0.45f, 1), Color(0.03f, 0.19f, 0.22f, 1), Color(0.65f, 0.94f, 1.00f, 1)},
+    {"Grape", Color(0.24f, 0.71f, 0.95f, 1), Color(0.07f, 0.40f, 0.75f, 1), Color(0.09f, 0.33f, 0.45f, 1), Color(0.03f, 0.16f, 0.22f, 1), Color(0.65f, 0.88f, 1.00f, 1)},
+    {"Orchid", Color(0.24f, 0.59f, 0.95f, 1), Color(0.07f, 0.29f, 0.75f, 1), Color(0.09f, 0.27f, 0.45f, 1), Color(0.03f, 0.13f, 0.22f, 1), Color(0.65f, 0.82f, 1.00f, 1)},
+    {"Magenta", Color(0.24f, 0.47f, 0.95f, 1), Color(0.07f, 0.18f, 0.75f, 1), Color(0.09f, 0.21f, 0.45f, 1), Color(0.03f, 0.10f, 0.22f, 1), Color(0.65f, 0.77f, 1.00f, 1)},
+    {"Fuchsia", Color(0.24f, 0.36f, 0.95f, 1), Color(0.08f, 0.07f, 0.75f, 1), Color(0.09f, 0.15f, 0.45f, 1), Color(0.03f, 0.06f, 0.22f, 1), Color(0.65f, 0.71f, 1.00f, 1)},
+    {"Rose", Color(0.24f, 0.24f, 0.95f, 1), Color(0.20f, 0.07f, 0.75f, 1), Color(0.09f, 0.09f, 0.45f, 1), Color(0.03f, 0.03f, 0.22f, 1), Color(0.65f, 0.65f, 1.00f, 1)},
+    {"Blush", Color(0.36f, 0.24f, 0.95f, 1), Color(0.31f, 0.07f, 0.75f, 1), Color(0.15f, 0.09f, 0.45f, 1), Color(0.06f, 0.03f, 0.22f, 1), Color(0.71f, 0.65f, 1.00f, 1)},
+    {"Cherry", Color(0.47f, 0.24f, 0.95f, 1), Color(0.42f, 0.07f, 0.75f, 1), Color(0.21f, 0.09f, 0.45f, 1), Color(0.10f, 0.03f, 0.22f, 1), Color(0.77f, 0.65f, 1.00f, 1)},
+    {"Cranberry", Color(0.59f, 0.24f, 0.95f, 1), Color(0.53f, 0.07f, 0.75f, 1), Color(0.27f, 0.09f, 0.45f, 1), Color(0.13f, 0.03f, 0.22f, 1), Color(0.82f, 0.65f, 1.00f, 1)},
+    {"Peach", Color(0.71f, 0.24f, 0.95f, 1), Color(0.65f, 0.07f, 0.75f, 1), Color(0.33f, 0.09f, 0.45f, 1), Color(0.16f, 0.03f, 0.22f, 1), Color(0.88f, 0.65f, 1.00f, 1)},
+    {"Mango", Color(0.83f, 0.24f, 0.95f, 1), Color(0.75f, 0.07f, 0.74f, 1), Color(0.39f, 0.09f, 0.45f, 1), Color(0.19f, 0.03f, 0.22f, 1), Color(0.94f, 0.65f, 1.00f, 1)},
+    {"Moss", Color(0.95f, 0.24f, 0.95f, 1), Color(0.75f, 0.07f, 0.63f, 1), Color(0.45f, 0.09f, 0.45f, 1), Color(0.22f, 0.03f, 0.22f, 1), Color(1.00f, 0.65f, 1.00f, 1)},
+    {"Pine", Color(0.95f, 0.24f, 0.83f, 1), Color(0.75f, 0.07f, 0.52f, 1), Color(0.45f, 0.09f, 0.39f, 1), Color(0.22f, 0.03f, 0.19f, 1), Color(1.00f, 0.65f, 0.94f, 1)},
+    {"Ocean", Color(0.95f, 0.24f, 0.71f, 1), Color(0.75f, 0.07f, 0.40f, 1), Color(0.45f, 0.09f, 0.33f, 1), Color(0.22f, 0.03f, 0.16f, 1), Color(1.00f, 0.65f, 0.88f, 1)},
+    {"Ice", Color(0.95f, 0.24f, 0.59f, 1), Color(0.75f, 0.07f, 0.29f, 1), Color(0.45f, 0.09f, 0.27f, 1), Color(0.22f, 0.03f, 0.13f, 1), Color(1.00f, 0.65f, 0.82f, 1)},
+    {"Lavender", Color(0.95f, 0.24f, 0.48f, 1), Color(0.75f, 0.07f, 0.18f, 1), Color(0.45f, 0.09f, 0.21f, 1), Color(0.22f, 0.03f, 0.10f, 1), Color(1.00f, 0.65f, 0.77f, 1)},
+    {"Plum", Color(0.95f, 0.24f, 0.36f, 1), Color(0.75f, 0.08f, 0.07f, 1), Color(0.45f, 0.09f, 0.15f, 1), Color(0.22f, 0.03f, 0.06f, 1), Color(1.00f, 0.65f, 0.71f, 1)},
 };
 static constexpr int kThemeCount = sizeof(kThemes) / sizeof(kThemes[0]);
 static int g_theme = 0;
@@ -1077,6 +1682,11 @@ static void GoToSpot2() {
 static const float kIronSpeeds[] = {15, 12, 8, 4};
 static int g_ironSpeed = 0;
 static void NextIronSpeed() { g_ironSpeed = (g_ironSpeed + 1) % 4; Notify("Iron Man speed: %d", (int)kIronSpeeds[g_ironSpeed]); }
+static void SetMenuSize(float sz) {
+    g_menuSize = sz;
+    if (Alive(g_menu.get())) G.trSetLocalScale[Tr(g_menu.get())](Vector3(sz, sz, sz));
+    Notify("Menu size: %d%%", (int)(sz * 100 + 0.5f));
+}
 static void NextMenuSize() {
     static const float kSizes[] = {1.0f, 1.25f, 1.5f, 0.75f};
     static const char *kNames[] = {"normal", "big", "huge", "small"};
@@ -1104,7 +1714,7 @@ static void AllOff() {
 static void FlyTick(const Buttons &in, float dt) {
     Il2CppObject *head = g_head.get(), *t = PlayerTransform();
     if (!f_fly || !in.a || !head || !t) return;
-    Vector3 pos = G.trGetPosition[t]() + G.trGetForward[head]() * ((f_fastFly ? 20.0f : 8.0f) * dt);
+    Vector3 pos = G.trGetPosition[t]() + G.trGetForward[head]() * ((g_flyLevel > 0 ? g_flyLevel * 1.5f : (f_fastFly ? 20.0f : 8.0f)) * dt);
     G.trSetPosition[t](pos);
     StopMoving();
 }
@@ -1112,7 +1722,7 @@ static void FlyTick(const Buttons &in, float dt) {
 static void LowGravityTick(const Buttons &in, float dt) {
     Vector3 v;
     if (!f_lowGravity || f_noGravity || (f_fly && in.a) || !GetVel(v)) return;
-    SetVel(v + Vector3(0, 9.81f * 0.7f * dt, 0));       // cancels 70% of gravity
+    SetVel(v + Vector3(0, 9.81f * g_gravCancel * dt, 0));   // cancels part of gravity (70% unless you picked a level)
 }
 
 static void PlatformFor(bool held, Ref &platform, Ref &hand) {
@@ -1222,7 +1832,7 @@ static void MoreMovementTick(const Buttons &in, float dt) {
     if (f_dash && xEdge && head && !(f_ironMan && in.a) && g_time >= g_nextDash) {
         g_nextDash = g_time + 0.8;
         Vector3 f = Flat(G.trGetForward[head]());
-        v.x += f.x * 12.0f; v.z += f.z * 12.0f;
+        v.x += f.x * g_dashPower; v.z += f.z * g_dashPower;
         SetVel(v);
     }
     if (f_jetpack && in.b && !f_rightHand) { v.y = fminf(v.y + 18.0f * dt, 7.0f); SetVel(v); }   // thrust up while B is held
@@ -1239,15 +1849,17 @@ static void ApplySpeedBoost() {
     // first time either turns on and put back when both are off.
     Il2CppObject *player = g_player.get();
     bool ok = G.maxJumpSpeed.IsValid() && G.jumpMultiplier.IsValid();
-    bool want = f_speedBoost || f_superJump;
+    bool want = f_speedBoost || f_superJump || g_jumpLevel > 0;
     if (want && ok && player) {
         if (g_boosted != player) {
             g_oldJumpSpeed = G.maxJumpSpeed[player]();
             g_oldJumpMultiplier = G.jumpMultiplier[player]();
             g_boosted = player;
         }
-        G.maxJumpSpeed[player] = f_superJump ? 14.0f : 9.0f;
-        G.jumpMultiplier[player] = f_superJump ? 3.0f : 1.5f;
+        float spd = f_superJump ? 14.0f : 9.0f, mul = f_superJump ? 3.0f : 1.5f;
+        if (g_jumpLevel > 0) { spd = 6.0f + g_jumpLevel * 0.8f; mul = 1.0f + g_jumpLevel * 0.2f; }
+        G.maxJumpSpeed[player] = spd;
+        G.jumpMultiplier[player] = mul;
     } else if (!want && g_boosted) {
         if (ok && player == g_boosted) {
             G.maxJumpSpeed[player] = g_oldJumpSpeed;
@@ -1444,6 +2056,48 @@ static void PauseTrackers(bool pause) {
             }
 }
 
+// 96 generated poses: 8 kinds of motion x 3 speeds x 2 sizes x (both hands together or taking turns).
+static void GenPose(int idx, float t, Vector3 shoulder, Vector3 r, Vector3 f, Vector3 up, Vector3 &R, Vector3 &L) {
+    static const float kSpeed[3] = {3.0f, 6.0f, 10.0f};
+    int fam = idx / 12, v = idx % 12;
+    float size = ((v / 2) % 2) ? 0.4f : 0.2f;
+    float p = t * kSpeed[v / 4], q = (v % 2) ? p + 3.14159265f : p;
+    switch (fam) {
+    case 0:   // Circles
+        R = shoulder + f * 0.4f + r * (0.15f + size * cosf(p)) + up * (size * sinf(p));
+        L = shoulder + f * 0.4f - r * (0.15f + size * cosf(q)) + up * (size * sinf(q));
+        break;
+    case 1:   // Figure 8
+        R = shoulder + f * 0.4f + r * (0.15f + size * sinf(p)) + up * (size * 0.5f * sinf(2 * p));
+        L = shoulder + f * 0.4f - r * (0.15f + size * sinf(q)) + up * (size * 0.5f * sinf(2 * q));
+        break;
+    case 2:   // Sweeps
+        R = shoulder + f * 0.4f + r * (size * 1.5f * sinf(p));
+        L = shoulder + f * 0.4f + r * (size * 1.5f * sinf(q));
+        break;
+    case 3:   // Pumps
+        R = shoulder + f * (0.3f + size * sinf(p)) + r * 0.2f;
+        L = shoulder + f * (0.3f + size * sinf(q)) - r * 0.2f;
+        break;
+    case 4:   // Bobs
+        R = shoulder + r * 0.3f + f * 0.2f + up * (-0.2f + size * sinf(p));
+        L = shoulder - r * 0.3f + f * 0.2f + up * (-0.2f + size * sinf(q));
+        break;
+    case 5:   // Flaps
+        R = shoulder + r * 0.55f + up * (size * 1.5f * sinf(p));
+        L = shoulder - r * 0.55f + up * (size * 1.5f * sinf(q));
+        break;
+    case 6:   // Spins
+        R = shoulder + r * ((0.3f + size) * cosf(p)) + f * ((0.3f + size) * sinf(p)) + up * 0.05f;
+        L = shoulder - r * ((0.3f + size) * cosf(q)) - f * ((0.3f + size) * sinf(q)) + up * 0.05f;
+        break;
+    default:  // Waves
+        R = shoulder + r * (0.3f + size * sinf(p)) + up * 0.45f + f * 0.1f;
+        L = shoulder - r * (0.3f + size * sinf(q)) + up * 0.45f + f * 0.1f;
+        break;
+    }
+}
+
 static void DanceTick(const Buttons &in, float dt) {
     Il2CppObject *head = g_head.get(), *lh = g_leftHand.get(), *rh = g_rightHand.get();
     bool want = g_dance >= 0 && in.ltrig && head && lh && rh;
@@ -1456,7 +2110,7 @@ static void DanceTick(const Buttons &in, float dt) {
     Vector3 hp = G.trGetPosition[head](), f = Flat(G.trGetForward[head]()), up(0, 1, 0);
     Vector3 r = Cross(up, f);                            // your right
     Vector3 shoulder = hp + up * -0.25f;
-    float t = (float)g_time, s = sinf(t * 6), c = cosf(t * 6);
+    float t = (float)g_time * g_danceSpeed, s = sinf(t * 6), c = cosf(t * 6);
     Vector3 L, R;                                        // hand positions
     switch (g_dance) {
     case 0:   // Wave: right hand up and waving, left hand on the hip
@@ -1601,8 +2255,28 @@ static void DanceTick(const Buttons &in, float dt) {
         R = shoulder + r * (0.35f + 0.12f * s) + up * 0.45f + f * 0.1f;
         L = shoulder - r * (0.35f + 0.12f * sinf(t * 6 + 1.5f)) + up * 0.45f + f * 0.1f;
         break;
+    case 29: {  // Dead: both arms hang limp, drifting a little
+        float d = 0.03f * sinf(t * 1.5f);
+        R = shoulder + r * (0.2f + d) - up * (0.62f + 0.02f * sinf(t * 1.2f));
+        L = shoulder - r * (0.2f - d) - up * (0.62f - 0.02f * sinf(t * 1.2f));
+        break;
+    }
+    case 31: {  // Collapse: arms rise, then drop and go limp, in a 4 second loop
+        float ph = fmodf(t, 4.0f);
+        float u = ph < 1.5f ? 0.0f : fminf(1.0f, (ph - 1.5f) / 0.5f);
+        float h = 0.5f - 1.12f * u;
+        float sway = ph < 1.5f ? 0.05f * s : 0.0f;
+        R = shoulder + r * (0.25f + sway) + up * h;
+        L = shoulder - r * (0.25f - sway) + up * h;
+        break;
+    }
+    case 30:  // Corpse: arms crossed over the chest, still
+        R = shoulder + f * 0.18f - r * 0.08f - up * 0.12f;
+        L = shoulder + f * 0.2f + r * 0.08f - up * 0.12f;
+        break;
     default:
-        R = L = shoulder;
+        if (g_dance >= kGenFirst) GenPose(g_dance - kGenFirst, t, shoulder, r, f, up, R, L);
+        else R = L = shoulder;
         break;
     }
     // Keep each hand within arm's reach of its shoulder, then glide there instead of
@@ -1891,6 +2565,410 @@ static void ArmWave() { if (LeftHandItem()) SpawnShape(SHAPE_WAVE); }
 static void ArmTower() { if (LeftHandItem()) SpawnShape(SHAPE_TOWER); }
 static void ArmWall() { if (LeftHandItem()) SpawnShape(SHAPE_WALL); }
 static void ArmBigGrid() { if (LeftHandItem()) SpawnShape(SHAPE_GRID); }
+// Only your own waiting items: anything already spawned belongs to the room and stays.
+static void ClearItemQueue() {
+    int n = (int)g_itemQueue.size();
+    g_itemQueue.clear();
+    g_dupeArmed = 0;
+    Notify("Cleared %d waiting items", n);
+}
+// ---- Item Multiplier: how many copies one Spawn On Hand press makes ----
+static void ItemMultOff() { g_itemMult = 1; Notify("Item multiplier off"); }
+static void ItemMult2() { g_itemMult = 2; f_spawnOnHand = true; Notify("Item multiplier x2: hold an item, press right trigger"); }
+static void ItemMult3() { g_itemMult = 3; f_spawnOnHand = true; Notify("Item multiplier x3: hold an item, press right trigger"); }
+static void ItemMult4() { g_itemMult = 4; f_spawnOnHand = true; Notify("Item multiplier x4: hold an item, press right trigger"); }
+static void ItemMult5() { g_itemMult = 5; f_spawnOnHand = true; Notify("Item multiplier x5: hold an item, press right trigger"); }
+static void ItemMult6() { g_itemMult = 6; f_spawnOnHand = true; Notify("Item multiplier x6: hold an item, press right trigger"); }
+static void ItemMult8() { g_itemMult = 8; f_spawnOnHand = true; Notify("Item multiplier x8: hold an item, press right trigger"); }
+static void ItemMult10() { g_itemMult = 10; f_spawnOnHand = true; Notify("Item multiplier x10: hold an item, press right trigger"); }
+static void ItemMult12() { g_itemMult = 12; f_spawnOnHand = true; Notify("Item multiplier x12: hold an item, press right trigger"); }
+static void ItemMult16() { g_itemMult = 16; f_spawnOnHand = true; Notify("Item multiplier x16: hold an item, press right trigger"); }
+static void ItemMult20() { g_itemMult = 20; f_spawnOnHand = true; Notify("Item multiplier x20: hold an item, press right trigger"); }
+
+// ---- generated item shapes (92) ----
+// Same rules as every other shape: the item in your left hand, through QueueItems
+// (one batch every 3 s, at most 27 items, 2 a frame), always starting 0.7 m or more in front of you.
+struct ShapeDef { int kind, a, b, c; };
+static const ShapeDef kShapeDefs[] = {
+    {0, 3, 0, 0},   // Ring 3
+    {0, 4, 0, 0},   // Ring 4
+    {0, 5, 0, 0},   // Ring 5
+    {0, 6, 0, 0},   // Ring 6
+    {0, 7, 0, 0},   // Ring 7
+    {0, 8, 0, 0},   // Ring 8
+    {0, 9, 0, 0},   // Ring 9
+    {0, 10, 0, 0},   // Ring 10
+    {0, 11, 0, 0},   // Ring 11
+    {0, 12, 0, 0},   // Ring 12
+    {0, 13, 0, 0},   // Ring 13
+    {0, 14, 0, 0},   // Ring 14
+    {0, 15, 0, 0},   // Ring 15
+    {0, 16, 0, 0},   // Ring 16
+    {1, 4, 0, 0},   // Star 4 Point
+    {1, 5, 0, 0},   // Star 5 Point
+    {1, 6, 0, 0},   // Star 6 Point
+    {1, 7, 0, 0},   // Star 7 Point
+    {1, 8, 0, 0},   // Star 8 Point
+    {1, 9, 0, 0},   // Star 9 Point
+    {1, 10, 0, 0},   // Star 10 Point
+    {1, 11, 0, 0},   // Star 11 Point
+    {1, 12, 0, 0},   // Star 12 Point
+    {2, 3, 0, 0},   // Row 3
+    {2, 4, 0, 0},   // Row 4
+    {2, 5, 0, 0},   // Row 5
+    {2, 6, 0, 0},   // Row 6
+    {2, 7, 0, 0},   // Row 7
+    {2, 8, 0, 0},   // Row 8
+    {2, 9, 0, 0},   // Row 9
+    {2, 10, 0, 0},   // Row 10
+    {2, 11, 0, 0},   // Row 11
+    {2, 12, 0, 0},   // Row 12
+    {3, 2, 3, 0},   // Grid 2x3
+    {3, 2, 4, 0},   // Grid 2x4
+    {3, 2, 5, 0},   // Grid 2x5
+    {3, 2, 6, 0},   // Grid 2x6
+    {3, 3, 4, 0},   // Grid 3x4
+    {3, 3, 5, 0},   // Grid 3x5
+    {3, 3, 6, 0},   // Grid 3x6
+    {3, 4, 5, 0},   // Grid 4x5
+    {3, 4, 6, 0},   // Grid 4x6
+    {4, 2, 0, 0},   // Spiral S
+    {4, 3, 0, 0},   // Spiral M
+    {4, 4, 0, 0},   // Spiral L
+    {5, 2, 2, 2},   // Box 2x2x2
+    {5, 3, 2, 3},   // Box 3x2x3
+    {5, 2, 3, 2},   // Box 2x3x2
+    {5, 3, 3, 2},   // Box 3x3x2
+    {5, 2, 2, 4},   // Box 2x2x4
+    {5, 4, 2, 3},   // Box 4x2x3
+    {5, 3, 2, 4},   // Box 3x2x4
+    {5, 2, 4, 3},   // Box 2x4x3
+    {6, 3, 2, 0},   // Wall 3x2
+    {6, 4, 2, 0},   // Wall 4x2
+    {6, 5, 2, 0},   // Wall 5x2
+    {6, 6, 2, 0},   // Wall 6x2
+    {6, 3, 3, 0},   // Wall 3x3
+    {6, 4, 3, 0},   // Wall 4x3
+    {6, 6, 3, 0},   // Wall 6x3
+    {6, 4, 4, 0},   // Wall 4x4
+    {6, 5, 4, 0},   // Wall 5x4
+    {6, 6, 4, 0},   // Wall 6x4
+    {7, 2, 0, 0},   // Tower 2
+    {7, 3, 0, 0},   // Tower 3
+    {7, 4, 0, 0},   // Tower 4
+    {7, 5, 0, 0},   // Tower 5
+    {7, 6, 0, 0},   // Tower 6
+    {7, 7, 0, 0},   // Tower 7
+    {7, 8, 0, 0},   // Tower 8
+    {7, 9, 0, 0},   // Tower 9
+    {7, 10, 0, 0},   // Tower 10
+    {7, 11, 0, 0},   // Tower 11
+    {7, 12, 0, 0},   // Tower 12
+    {8, 6, 0, 0},   // Zigzag 6
+    {8, 8, 0, 0},   // Zigzag 8
+    {8, 10, 0, 0},   // Zigzag 10
+    {8, 12, 0, 0},   // Zigzag 12
+    {8, 16, 0, 0},   // Zigzag 16
+    {8, 20, 0, 0},   // Zigzag 20
+    {9, 2, 0, 0},   // Plus 2
+    {9, 3, 0, 0},   // Plus 3
+    {9, 4, 0, 0},   // Plus 4
+    {9, 5, 0, 0},   // Plus 5
+    {9, 6, 0, 0},   // Plus 6
+    {10, 12, 0, 0},   // Heart 12
+    {10, 20, 0, 0},   // Heart 20
+    {10, 24, 0, 0},   // Heart 24
+    {11, 10, 0, 0},   // Helix 10
+    {11, 14, 0, 0},   // Helix 14
+    {11, 18, 0, 0},   // Helix 18
+    {11, 22, 0, 0},   // Helix 22
+};
+static void SpawnDef(int id) {
+    Il2CppObject *head = g_head.get();
+    if (!head) return;
+    const ShapeDef &d = kShapeDefs[id];
+    struct P { float x, y, z; };
+    std::vector<P> pts;
+    switch (d.kind) {
+    case 0: {                                          // a ring of a items
+        float rad = fmaxf(0.35f, d.a * 0.09f);
+        for (int i = 0; i < d.a; i++) { float an = i * (6.2831853f / d.a); pts.push_back({cosf(an) * rad, 0, sinf(an) * rad}); }
+        break;
+    }
+    case 1:                                            // a star with a points
+        for (int i = 0; i < d.a * 2; i++) {
+            float an = i * (3.14159265f / d.a), rad = (i % 2 == 0) ? 0.8f : 0.35f;
+            pts.push_back({sinf(an) * rad, 0, cosf(an) * rad});
+        }
+        break;
+    case 2:                                            // a row of a
+        for (int i = 0; i < d.a; i++) pts.push_back({(i - (d.a - 1) * 0.5f) * 0.4f, 0, 0});
+        break;
+    case 3:                                            // a flat grid, a x b
+        for (int j = 0; j < d.b; j++)
+            for (int i = 0; i < d.a; i++)
+                pts.push_back({(i - (d.a - 1) * 0.5f) * 0.45f, 0, (j - (d.b - 1) * 0.5f) * 0.45f});
+        break;
+    case 4:                                            // a spiral with a loops
+        for (int i = 0; i < d.a * 6; i++) { float an = i * (6.2831853f / 6.0f), rad = 0.2f + i * 0.04f; pts.push_back({cosf(an) * rad, 0, sinf(an) * rad}); }
+        break;
+    case 5:                                            // a box, a wide, b high, c deep
+        for (int k = 0; k < d.b; k++)
+            for (int j = 0; j < d.c; j++)
+                for (int i = 0; i < d.a; i++)
+                    pts.push_back({(i - (d.a - 1) * 0.5f) * 0.45f, k * 0.45f, (j - (d.c - 1) * 0.5f) * 0.45f});
+        break;
+    case 6:                                            // a wall, a across, b high
+        for (int k = 0; k < d.b; k++)
+            for (int i = 0; i < d.a; i++)
+                pts.push_back({(i - (d.a - 1) * 0.5f) * 0.45f, k * 0.45f, 0});
+        break;
+    case 7:                                            // a tower of a
+        for (int i = 0; i < d.a; i++) pts.push_back({0, i * 0.45f, 0});
+        break;
+    case 8:                                            // a zigzag of a
+        for (int i = 0; i < d.a; i++) pts.push_back({(i - (d.a - 1) * 0.5f) * 0.3f, 0, (i % 2) * 0.35f});
+        break;
+    case 9:                                            // a plus sign with arms of a
+        pts.push_back({0, 0, 0});
+        for (int i = 1; i <= d.a; i++) {
+            pts.push_back({i * 0.45f, 0, 0}); pts.push_back({-i * 0.45f, 0, 0});
+            pts.push_back({0, 0, i * 0.45f}); pts.push_back({0, 0, -i * 0.45f});
+        }
+        break;
+    case 10:                                           // a heart of a items
+        for (int i = 0; i < d.a; i++) {
+            float an = i * (6.2831853f / d.a);
+            pts.push_back({16.0f * powf(sinf(an), 3.0f) * 0.04f, 0,
+                           (13.0f * cosf(an) - 5.0f * cosf(2 * an) - 2.0f * cosf(3 * an) - cosf(4 * an)) * 0.04f});
+        }
+        break;
+    default:                                           // a helix of a items
+        for (int i = 0; i < d.a; i++) { float an = i * 0.8f; pts.push_back({cosf(an) * 0.4f, i * 0.25f, sinf(an) * 0.4f}); }
+        break;
+    }
+    if (pts.size() > 27) pts.resize(27);
+    float minZ = 1e9f;
+    for (auto &q : pts) minZ = fminf(minZ, q.z);
+    Vector3 f = Flat(G.trGetForward[head]()), r = Cross(Vector3(0, 1, 0), f);
+    Vector3 base = G.trGetPosition[head]() + f * (0.7f - minZ) + Vector3(0, -0.4f, 0);
+    std::vector<PendingItem> list;
+    for (auto &q : pts) list.push_back({base + r * q.x + f * q.z + Vector3(0, q.y, 0), Vector3(0, 0, 0)});
+    QueueItems(list);
+}
+
+// ---- generated buttons: levels, themes, sizes and shapes ----
+static void PoseSpd0() { g_danceSpeed = 0.50f; Notify("Pose speed 0.5x"); }
+static void PoseSpd1() { g_danceSpeed = 0.60f; Notify("Pose speed 0.6x"); }
+static void PoseSpd2() { g_danceSpeed = 0.70f; Notify("Pose speed 0.7x"); }
+static void PoseSpd3() { g_danceSpeed = 0.80f; Notify("Pose speed 0.8x"); }
+static void PoseSpd4() { g_danceSpeed = 0.90f; Notify("Pose speed 0.9x"); }
+static void PoseSpd5() { g_danceSpeed = 1.00f; Notify("Pose speed 1x"); }
+static void PoseSpd6() { g_danceSpeed = 1.25f; Notify("Pose speed 1.2x"); }
+static void PoseSpd7() { g_danceSpeed = 1.50f; Notify("Pose speed 1.5x"); }
+static void PoseSpd8() { g_danceSpeed = 1.75f; Notify("Pose speed 1.8x"); }
+static void PoseSpd9() { g_danceSpeed = 2.00f; Notify("Pose speed 2x"); }
+static void ArmS0() { if (LeftHandItem()) SpawnDef(0); }
+static void ArmS1() { if (LeftHandItem()) SpawnDef(1); }
+static void ArmS2() { if (LeftHandItem()) SpawnDef(2); }
+static void ArmS3() { if (LeftHandItem()) SpawnDef(3); }
+static void ArmS4() { if (LeftHandItem()) SpawnDef(4); }
+static void ArmS5() { if (LeftHandItem()) SpawnDef(5); }
+static void ArmS6() { if (LeftHandItem()) SpawnDef(6); }
+static void ArmS7() { if (LeftHandItem()) SpawnDef(7); }
+static void ArmS8() { if (LeftHandItem()) SpawnDef(8); }
+static void ArmS9() { if (LeftHandItem()) SpawnDef(9); }
+static void ArmS10() { if (LeftHandItem()) SpawnDef(10); }
+static void ArmS11() { if (LeftHandItem()) SpawnDef(11); }
+static void ArmS12() { if (LeftHandItem()) SpawnDef(12); }
+static void ArmS13() { if (LeftHandItem()) SpawnDef(13); }
+static void ArmS14() { if (LeftHandItem()) SpawnDef(14); }
+static void ArmS15() { if (LeftHandItem()) SpawnDef(15); }
+static void ArmS16() { if (LeftHandItem()) SpawnDef(16); }
+static void ArmS17() { if (LeftHandItem()) SpawnDef(17); }
+static void ArmS18() { if (LeftHandItem()) SpawnDef(18); }
+static void ArmS19() { if (LeftHandItem()) SpawnDef(19); }
+static void ArmS20() { if (LeftHandItem()) SpawnDef(20); }
+static void ArmS21() { if (LeftHandItem()) SpawnDef(21); }
+static void ArmS22() { if (LeftHandItem()) SpawnDef(22); }
+static void ArmS23() { if (LeftHandItem()) SpawnDef(23); }
+static void ArmS24() { if (LeftHandItem()) SpawnDef(24); }
+static void ArmS25() { if (LeftHandItem()) SpawnDef(25); }
+static void ArmS26() { if (LeftHandItem()) SpawnDef(26); }
+static void ArmS27() { if (LeftHandItem()) SpawnDef(27); }
+static void ArmS28() { if (LeftHandItem()) SpawnDef(28); }
+static void ArmS29() { if (LeftHandItem()) SpawnDef(29); }
+static void ArmS30() { if (LeftHandItem()) SpawnDef(30); }
+static void ArmS31() { if (LeftHandItem()) SpawnDef(31); }
+static void ArmS32() { if (LeftHandItem()) SpawnDef(32); }
+static void ArmS33() { if (LeftHandItem()) SpawnDef(33); }
+static void ArmS34() { if (LeftHandItem()) SpawnDef(34); }
+static void ArmS35() { if (LeftHandItem()) SpawnDef(35); }
+static void ArmS36() { if (LeftHandItem()) SpawnDef(36); }
+static void ArmS37() { if (LeftHandItem()) SpawnDef(37); }
+static void ArmS38() { if (LeftHandItem()) SpawnDef(38); }
+static void ArmS39() { if (LeftHandItem()) SpawnDef(39); }
+static void ArmS40() { if (LeftHandItem()) SpawnDef(40); }
+static void ArmS41() { if (LeftHandItem()) SpawnDef(41); }
+static void ArmS42() { if (LeftHandItem()) SpawnDef(42); }
+static void ArmS43() { if (LeftHandItem()) SpawnDef(43); }
+static void ArmS44() { if (LeftHandItem()) SpawnDef(44); }
+static void ArmS45() { if (LeftHandItem()) SpawnDef(45); }
+static void ArmS46() { if (LeftHandItem()) SpawnDef(46); }
+static void ArmS47() { if (LeftHandItem()) SpawnDef(47); }
+static void ArmS48() { if (LeftHandItem()) SpawnDef(48); }
+static void ArmS49() { if (LeftHandItem()) SpawnDef(49); }
+static void ArmS50() { if (LeftHandItem()) SpawnDef(50); }
+static void ArmS51() { if (LeftHandItem()) SpawnDef(51); }
+static void ArmS52() { if (LeftHandItem()) SpawnDef(52); }
+static void ArmS53() { if (LeftHandItem()) SpawnDef(53); }
+static void ArmS54() { if (LeftHandItem()) SpawnDef(54); }
+static void ArmS55() { if (LeftHandItem()) SpawnDef(55); }
+static void ArmS56() { if (LeftHandItem()) SpawnDef(56); }
+static void ArmS57() { if (LeftHandItem()) SpawnDef(57); }
+static void ArmS58() { if (LeftHandItem()) SpawnDef(58); }
+static void ArmS59() { if (LeftHandItem()) SpawnDef(59); }
+static void ArmS60() { if (LeftHandItem()) SpawnDef(60); }
+static void ArmS61() { if (LeftHandItem()) SpawnDef(61); }
+static void ArmS62() { if (LeftHandItem()) SpawnDef(62); }
+static void ArmS63() { if (LeftHandItem()) SpawnDef(63); }
+static void ArmS64() { if (LeftHandItem()) SpawnDef(64); }
+static void ArmS65() { if (LeftHandItem()) SpawnDef(65); }
+static void ArmS66() { if (LeftHandItem()) SpawnDef(66); }
+static void ArmS67() { if (LeftHandItem()) SpawnDef(67); }
+static void ArmS68() { if (LeftHandItem()) SpawnDef(68); }
+static void ArmS69() { if (LeftHandItem()) SpawnDef(69); }
+static void ArmS70() { if (LeftHandItem()) SpawnDef(70); }
+static void ArmS71() { if (LeftHandItem()) SpawnDef(71); }
+static void ArmS72() { if (LeftHandItem()) SpawnDef(72); }
+static void ArmS73() { if (LeftHandItem()) SpawnDef(73); }
+static void ArmS74() { if (LeftHandItem()) SpawnDef(74); }
+static void ArmS75() { if (LeftHandItem()) SpawnDef(75); }
+static void ArmS76() { if (LeftHandItem()) SpawnDef(76); }
+static void ArmS77() { if (LeftHandItem()) SpawnDef(77); }
+static void ArmS78() { if (LeftHandItem()) SpawnDef(78); }
+static void ArmS79() { if (LeftHandItem()) SpawnDef(79); }
+static void ArmS80() { if (LeftHandItem()) SpawnDef(80); }
+static void ArmS81() { if (LeftHandItem()) SpawnDef(81); }
+static void ArmS82() { if (LeftHandItem()) SpawnDef(82); }
+static void ArmS83() { if (LeftHandItem()) SpawnDef(83); }
+static void ArmS84() { if (LeftHandItem()) SpawnDef(84); }
+static void ArmS85() { if (LeftHandItem()) SpawnDef(85); }
+static void ArmS86() { if (LeftHandItem()) SpawnDef(86); }
+static void ArmS87() { if (LeftHandItem()) SpawnDef(87); }
+static void ArmS88() { if (LeftHandItem()) SpawnDef(88); }
+static void ArmS89() { if (LeftHandItem()) SpawnDef(89); }
+static void ArmS90() { if (LeftHandItem()) SpawnDef(90); }
+static void ArmS91() { if (LeftHandItem()) SpawnDef(91); }
+static void FlyNormal() { g_flyLevel = 0; Notify("Fly speed: normal"); }
+static void JumpNormal() { g_jumpLevel = 0; ApplySpeedBoost(); Notify("Jump: normal"); }
+static void FlyLvl1() { g_flyLevel = 1; Notify("Fly speed 1"); }
+static void FlyLvl2() { g_flyLevel = 2; Notify("Fly speed 2"); }
+static void FlyLvl3() { g_flyLevel = 3; Notify("Fly speed 3"); }
+static void FlyLvl4() { g_flyLevel = 4; Notify("Fly speed 4"); }
+static void FlyLvl5() { g_flyLevel = 5; Notify("Fly speed 5"); }
+static void FlyLvl6() { g_flyLevel = 6; Notify("Fly speed 6"); }
+static void FlyLvl7() { g_flyLevel = 7; Notify("Fly speed 7"); }
+static void FlyLvl8() { g_flyLevel = 8; Notify("Fly speed 8"); }
+static void FlyLvl9() { g_flyLevel = 9; Notify("Fly speed 9"); }
+static void FlyLvl10() { g_flyLevel = 10; Notify("Fly speed 10"); }
+static void FlyLvl11() { g_flyLevel = 11; Notify("Fly speed 11"); }
+static void FlyLvl12() { g_flyLevel = 12; Notify("Fly speed 12"); }
+static void FlyLvl13() { g_flyLevel = 13; Notify("Fly speed 13"); }
+static void FlyLvl14() { g_flyLevel = 14; Notify("Fly speed 14"); }
+static void FlyLvl15() { g_flyLevel = 15; Notify("Fly speed 15"); }
+static void FlyLvl16() { g_flyLevel = 16; Notify("Fly speed 16"); }
+static void FlyLvl17() { g_flyLevel = 17; Notify("Fly speed 17"); }
+static void FlyLvl18() { g_flyLevel = 18; Notify("Fly speed 18"); }
+static void FlyLvl19() { g_flyLevel = 19; Notify("Fly speed 19"); }
+static void FlyLvl20() { g_flyLevel = 20; Notify("Fly speed 20"); }
+static void JumpLvl1() { g_jumpLevel = 1; ApplySpeedBoost(); Notify("Jump level 1"); }
+static void JumpLvl2() { g_jumpLevel = 2; ApplySpeedBoost(); Notify("Jump level 2"); }
+static void JumpLvl3() { g_jumpLevel = 3; ApplySpeedBoost(); Notify("Jump level 3"); }
+static void JumpLvl4() { g_jumpLevel = 4; ApplySpeedBoost(); Notify("Jump level 4"); }
+static void JumpLvl5() { g_jumpLevel = 5; ApplySpeedBoost(); Notify("Jump level 5"); }
+static void JumpLvl6() { g_jumpLevel = 6; ApplySpeedBoost(); Notify("Jump level 6"); }
+static void JumpLvl7() { g_jumpLevel = 7; ApplySpeedBoost(); Notify("Jump level 7"); }
+static void JumpLvl8() { g_jumpLevel = 8; ApplySpeedBoost(); Notify("Jump level 8"); }
+static void JumpLvl9() { g_jumpLevel = 9; ApplySpeedBoost(); Notify("Jump level 9"); }
+static void JumpLvl10() { g_jumpLevel = 10; ApplySpeedBoost(); Notify("Jump level 10"); }
+static void JumpLvl11() { g_jumpLevel = 11; ApplySpeedBoost(); Notify("Jump level 11"); }
+static void JumpLvl12() { g_jumpLevel = 12; ApplySpeedBoost(); Notify("Jump level 12"); }
+static void JumpLvl13() { g_jumpLevel = 13; ApplySpeedBoost(); Notify("Jump level 13"); }
+static void JumpLvl14() { g_jumpLevel = 14; ApplySpeedBoost(); Notify("Jump level 14"); }
+static void JumpLvl15() { g_jumpLevel = 15; ApplySpeedBoost(); Notify("Jump level 15"); }
+static void JumpLvl16() { g_jumpLevel = 16; ApplySpeedBoost(); Notify("Jump level 16"); }
+static void JumpLvl17() { g_jumpLevel = 17; ApplySpeedBoost(); Notify("Jump level 17"); }
+static void JumpLvl18() { g_jumpLevel = 18; ApplySpeedBoost(); Notify("Jump level 18"); }
+static void JumpLvl19() { g_jumpLevel = 19; ApplySpeedBoost(); Notify("Jump level 19"); }
+static void JumpLvl20() { g_jumpLevel = 20; ApplySpeedBoost(); Notify("Jump level 20"); }
+static void DashLvl1() { g_dashPower = 7.0f; f_dash = true; Notify("Dash power 1"); }
+static void DashLvl2() { g_dashPower = 10.0f; f_dash = true; Notify("Dash power 2"); }
+static void DashLvl3() { g_dashPower = 13.0f; f_dash = true; Notify("Dash power 3"); }
+static void DashLvl4() { g_dashPower = 16.0f; f_dash = true; Notify("Dash power 4"); }
+static void DashLvl5() { g_dashPower = 19.0f; f_dash = true; Notify("Dash power 5"); }
+static void DashLvl6() { g_dashPower = 22.0f; f_dash = true; Notify("Dash power 6"); }
+static void DashLvl7() { g_dashPower = 25.0f; f_dash = true; Notify("Dash power 7"); }
+static void DashLvl8() { g_dashPower = 28.0f; f_dash = true; Notify("Dash power 8"); }
+static void DashLvl9() { g_dashPower = 31.0f; f_dash = true; Notify("Dash power 9"); }
+static void DashLvl10() { g_dashPower = 34.0f; f_dash = true; Notify("Dash power 10"); }
+static void GravNormal() { f_lowGravity = false; g_gravCancel = 0.7f; Notify("Gravity: normal"); }
+static void GravLvl0() { g_gravCancel = 1.00f; f_lowGravity = true; Notify("Gravity 0%%"); }
+static void GravLvl10() { g_gravCancel = 0.90f; f_lowGravity = true; Notify("Gravity 10%%"); }
+static void GravLvl20() { g_gravCancel = 0.80f; f_lowGravity = true; Notify("Gravity 20%%"); }
+static void GravLvl30() { g_gravCancel = 0.70f; f_lowGravity = true; Notify("Gravity 30%%"); }
+static void GravLvl40() { g_gravCancel = 0.60f; f_lowGravity = true; Notify("Gravity 40%%"); }
+static void GravLvl50() { g_gravCancel = 0.50f; f_lowGravity = true; Notify("Gravity 50%%"); }
+static void GravLvl60() { g_gravCancel = 0.40f; f_lowGravity = true; Notify("Gravity 60%%"); }
+static void GravLvl70() { g_gravCancel = 0.30f; f_lowGravity = true; Notify("Gravity 70%%"); }
+static void GravLvl80() { g_gravCancel = 0.20f; f_lowGravity = true; Notify("Gravity 80%%"); }
+static void GravLvl90() { g_gravCancel = 0.10f; f_lowGravity = true; Notify("Gravity 90%%"); }
+static void ThemeSet0() { g_theme = 12; g_dirty = true; Notify("Theme: Ruby"); }
+static void ThemeSet1() { g_theme = 13; g_dirty = true; Notify("Theme: Scarlet"); }
+static void ThemeSet2() { g_theme = 14; g_dirty = true; Notify("Theme: Coral"); }
+static void ThemeSet3() { g_theme = 15; g_dirty = true; Notify("Theme: Ember"); }
+static void ThemeSet4() { g_theme = 16; g_dirty = true; Notify("Theme: Amber"); }
+static void ThemeSet5() { g_theme = 17; g_dirty = true; Notify("Theme: Honey"); }
+static void ThemeSet6() { g_theme = 18; g_dirty = true; Notify("Theme: Lemon"); }
+static void ThemeSet7() { g_theme = 19; g_dirty = true; Notify("Theme: Lime"); }
+static void ThemeSet8() { g_theme = 20; g_dirty = true; Notify("Theme: Fern"); }
+static void ThemeSet9() { g_theme = 21; g_dirty = true; Notify("Theme: Jade"); }
+static void ThemeSet10() { g_theme = 22; g_dirty = true; Notify("Theme: Emerald"); }
+static void ThemeSet11() { g_theme = 23; g_dirty = true; Notify("Theme: Spring"); }
+static void ThemeSet12() { g_theme = 24; g_dirty = true; Notify("Theme: Teal"); }
+static void ThemeSet13() { g_theme = 25; g_dirty = true; Notify("Theme: Aqua"); }
+static void ThemeSet14() { g_theme = 26; g_dirty = true; Notify("Theme: Azure"); }
+static void ThemeSet15() { g_theme = 27; g_dirty = true; Notify("Theme: Sky"); }
+static void ThemeSet16() { g_theme = 28; g_dirty = true; Notify("Theme: Cobalt"); }
+static void ThemeSet17() { g_theme = 29; g_dirty = true; Notify("Theme: Sapphire"); }
+static void ThemeSet18() { g_theme = 30; g_dirty = true; Notify("Theme: Indigo"); }
+static void ThemeSet19() { g_theme = 31; g_dirty = true; Notify("Theme: Violet"); }
+static void ThemeSet20() { g_theme = 32; g_dirty = true; Notify("Theme: Grape"); }
+static void ThemeSet21() { g_theme = 33; g_dirty = true; Notify("Theme: Orchid"); }
+static void ThemeSet22() { g_theme = 34; g_dirty = true; Notify("Theme: Magenta"); }
+static void ThemeSet23() { g_theme = 35; g_dirty = true; Notify("Theme: Fuchsia"); }
+static void ThemeSet24() { g_theme = 36; g_dirty = true; Notify("Theme: Rose"); }
+static void ThemeSet25() { g_theme = 37; g_dirty = true; Notify("Theme: Blush"); }
+static void ThemeSet26() { g_theme = 38; g_dirty = true; Notify("Theme: Cherry"); }
+static void ThemeSet27() { g_theme = 39; g_dirty = true; Notify("Theme: Cranberry"); }
+static void ThemeSet28() { g_theme = 40; g_dirty = true; Notify("Theme: Peach"); }
+static void ThemeSet29() { g_theme = 41; g_dirty = true; Notify("Theme: Mango"); }
+static void ThemeSet30() { g_theme = 42; g_dirty = true; Notify("Theme: Moss"); }
+static void ThemeSet31() { g_theme = 43; g_dirty = true; Notify("Theme: Pine"); }
+static void ThemeSet32() { g_theme = 44; g_dirty = true; Notify("Theme: Ocean"); }
+static void ThemeSet33() { g_theme = 45; g_dirty = true; Notify("Theme: Ice"); }
+static void ThemeSet34() { g_theme = 46; g_dirty = true; Notify("Theme: Lavender"); }
+static void ThemeSet35() { g_theme = 47; g_dirty = true; Notify("Theme: Plum"); }
+static void SizeSet0() { SetMenuSize(0.50f); }
+static void SizeSet1() { SetMenuSize(0.60f); }
+static void SizeSet2() { SetMenuSize(0.70f); }
+static void SizeSet3() { SetMenuSize(0.80f); }
+static void SizeSet4() { SetMenuSize(0.90f); }
+static void SizeSet5() { SetMenuSize(1.10f); }
+static void SizeSet6() { SetMenuSize(1.25f); }
+static void SizeSet7() { SetMenuSize(1.50f); }
+static void SizeSet8() { SetMenuSize(1.75f); }
+static void SizeSet9() { SetMenuSize(2.00f); }
 
 // Spawn On Hand: each right-trigger press (grip open) spawns the item at your hand.
 static bool g_onHandTrigger = false;
@@ -1900,6 +2978,16 @@ static void SpawnOnHandTick(const Buttons &in) {
     Il2CppObject *hand = g_rightHand.get();
     if (!f_spawnOnHand || !press || in.rgrip || g_menuShown || !hand || g_time < g_nextItem) return;
     if (!LeftHandItem()) return;
+    if (g_itemMult > 1) {                       // Item Multiplier: a small batch at your right hand
+        Vector3 hp = G.trGetPosition[hand]() + G.trGetForward[hand]() * 0.1f;
+        std::vector<PendingItem> list;
+        for (int i = 0; i < g_itemMult; i++) {
+            float a = i * 2.4f, rad = 0.06f + i * 0.015f;
+            list.push_back({hp + Vector3(cosf(a) * rad, (i % 3) * 0.1f, sinf(a) * rad), Vector3(0, 0, 0)});
+        }
+        QueueItems(list);                       // one batch every 3 s and at most 27, like the shapes
+        return;
+    }
     g_nextItem = g_time + 0.3;
     g_itemQueue.push_back({G.trGetPosition[hand]() + G.trGetForward[hand]() * 0.1f, Vector3(0, 0, 0)});
 }
