@@ -11,6 +11,8 @@
 #include "ymsdk.hpp"
 #include <cmath>
 #include <cstdarg>
+#include <cstdint>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <ctime>
@@ -338,6 +340,13 @@ static bool f_jetpack, f_autoTheme, f_clock24, f_haptics = true;
 static Vector3 g_spot2;
 static bool g_haveSpot2 = false;
 static float g_menuSize = 1.0f;
+static constexpr int kSoundCount = 23;
+static char g_playLabel[64] = "Play 1/22: Twinkle Star";       // the Soundboard's Play button shows the picked sound
+static bool f_soundLoop = false;
+static int g_soundIdx = 0;
+static float g_soundVol = 0.6f;
+static int g_borderStyle = 1, g_borderColor = 1;            // the border around the menu and its colors (1 = red and white)
+static bool f_deco[12] = {true, true};                      // the decorations (Candy Canes and Pumpkins start on)
 static int g_itemMult = 1;                                  // Item Multiplier: copies per Spawn On Hand press
 static int g_flyLevel = 0, g_jumpLevel = 0;               // 0 = the normal speeds
 static float g_dashPower = 12.0f, g_gravCancel = 0.7f, g_danceSpeed = 1.0f;
@@ -386,6 +395,56 @@ static void LaunchUp();
 static void StopAction();
 static void ClearItemQueue();
 static void ItemMultOff();
+static void PlaySelected();
+static void NextSong();
+static void PrevSong();
+static void StopSound();
+static void ApplyLoop();
+static void VolUp();
+static void VolDown();
+static void RandomSound();
+static void Snd0();
+static void Snd1();
+static void Snd2();
+static void Snd3();
+static void Snd4();
+static void Snd5();
+static void Snd6();
+static void Snd7();
+static void Snd8();
+static void Snd9();
+static void Snd10();
+static void Snd11();
+static void Snd12();
+static void Snd13();
+static void Snd14();
+static void Snd15();
+static void Snd16();
+static void Snd17();
+static void Snd18();
+static void Snd19();
+static void Snd20();
+static void Snd21();
+static void Snd22();
+static void BorderStyle0();
+static void BorderStyle1();
+static void BorderStyle2();
+static void BorderStyle3();
+static void BorderStyle4();
+static void BorderStyle5();
+static void BorderStyle6();
+static void BorderColor0();
+static void BorderColor1();
+static void BorderColor2();
+static void BorderColor3();
+static void BorderColor4();
+static void BorderColor5();
+static void BorderColor6();
+static void BorderColor7();
+static void BorderColor8();
+static void BorderColor9();
+static void BorderColor10();
+static void BorderColor11();
 static void ItemMult2();
 static void ItemMult3();
 static void ItemMult4();
@@ -610,9 +669,9 @@ static void SizeSet9();
 static bool GetVel(Vector3 &v);
 static bool BodyPos(Vector3 &out);
 
-enum Cat { MAIN, MOVEMENT, RIG, ITEMS, SETTINGS, ENABLED, POSES2, SHAPES, SPEED, GRAVITY, THEMES, SIZES, ITEMMULT, NCAT };
+enum Cat { MAIN, MOVEMENT, RIG, ITEMS, SETTINGS, ENABLED, POSES2, SHAPES, SPEED, GRAVITY, THEMES, SIZES, ITEMMULT, DECOR, SOUNDS, NCAT };
 static const char *kCatName[NCAT] = {"Main", "Movement Mods", "Rig Mods", "Items", "Settings", "Enabled Mods",
-                                     "Pose Pack", "Item Shapes", "Speed Levels", "Gravity Levels", "Themes", "Menu Sizes", "Item Multiplier"};
+                                     "Pose Pack", "Item Shapes", "Speed Levels", "Gravity Levels", "Themes", "Menu Sizes", "Item Multiplier", "Decorations", "Soundboard"};
 enum Kind { OPEN, TOGGLE, ACTION };
 struct Item {
     Cat cat;
@@ -635,6 +694,8 @@ static Item g_items[] = {
     {MAIN, "Themes", OPEN, THEMES},
     {MAIN, "Menu Sizes", OPEN, SIZES},
     {MAIN, "Item Multiplier", OPEN, ITEMMULT},
+    {MAIN, "Soundboard", OPEN, SOUNDS},
+    {MAIN, "Decorations", OPEN, DECOR},
     {MAIN, "Enabled Mods", OPEN, ENABLED},
 
     {MOVEMENT, "Exit Movement Mods", OPEN, MAIN},
@@ -1049,6 +1110,70 @@ static Item g_items[] = {
     {ITEMMULT, "Multiplier x12", ACTION, MAIN, nullptr, ItemMult12},
     {ITEMMULT, "Multiplier x16", ACTION, MAIN, nullptr, ItemMult16},
     {ITEMMULT, "Multiplier x20", ACTION, MAIN, nullptr, ItemMult20},
+    {SOUNDS, "Exit Soundboard", OPEN, MAIN},
+    {SOUNDS, g_playLabel, ACTION, MAIN, nullptr, PlaySelected},
+    {SOUNDS, "Next Song", ACTION, MAIN, nullptr, NextSong},
+    {SOUNDS, "Previous Song", ACTION, MAIN, nullptr, PrevSong},
+    {SOUNDS, "Stop Sound", ACTION, MAIN, nullptr, StopSound},
+    {SOUNDS, "Loop", TOGGLE, MAIN, &f_soundLoop, ApplyLoop},
+    {SOUNDS, "Volume Up", ACTION, MAIN, nullptr, VolUp},
+    {SOUNDS, "Volume Down", ACTION, MAIN, nullptr, VolDown},
+    {SOUNDS, "Random Sound", ACTION, MAIN, nullptr, RandomSound},
+    {SOUNDS, "Play: Twinkle Star", ACTION, MAIN, nullptr, Snd0},
+    {SOUNDS, "Play: Mary's Lamb", ACTION, MAIN, nullptr, Snd1},
+    {SOUNDS, "Play: Ode to Joy", ACTION, MAIN, nullptr, Snd2},
+    {SOUNDS, "Play: Jingle Bells", ACTION, MAIN, nullptr, Snd3},
+    {SOUNDS, "Play: Row Your Boat", ACTION, MAIN, nullptr, Snd4},
+    {SOUNDS, "Play: Happy Birthday", ACTION, MAIN, nullptr, Snd5},
+    {SOUNDS, "Play: Fur Elise", ACTION, MAIN, nullptr, Snd6},
+    {SOUNDS, "Play: Scale Run", ACTION, MAIN, nullptr, Snd7},
+    {SOUNDS, "Play: Beep", ACTION, MAIN, nullptr, Snd8},
+    {SOUNDS, "Play: Double Beep", ACTION, MAIN, nullptr, Snd9},
+    {SOUNDS, "Play: Siren", ACTION, MAIN, nullptr, Snd10},
+    {SOUNDS, "Play: Laser", ACTION, MAIN, nullptr, Snd11},
+    {SOUNDS, "Play: Coin", ACTION, MAIN, nullptr, Snd12},
+    {SOUNDS, "Play: Power Up", ACTION, MAIN, nullptr, Snd13},
+    {SOUNDS, "Play: Power Down", ACTION, MAIN, nullptr, Snd14},
+    {SOUNDS, "Play: Drum Roll", ACTION, MAIN, nullptr, Snd15},
+    {SOUNDS, "Play: Alarm", ACTION, MAIN, nullptr, Snd16},
+    {SOUNDS, "Play: Doorbell", ACTION, MAIN, nullptr, Snd17},
+    {SOUNDS, "Play: Bell", ACTION, MAIN, nullptr, Snd18},
+    {SOUNDS, "Play: Whoosh", ACTION, MAIN, nullptr, Snd19},
+    {SOUNDS, "Play: Heartbeat", ACTION, MAIN, nullptr, Snd20},
+    {SOUNDS, "Play: Wobble", ACTION, MAIN, nullptr, Snd21},
+    {SOUNDS, "Play: My Song", ACTION, MAIN, nullptr, Snd22},
+    {DECOR, "Exit Decorations", OPEN, MAIN},
+    {DECOR, "Border: Off", ACTION, MAIN, nullptr, BorderStyle0},
+    {DECOR, "Border: Stripes", ACTION, MAIN, nullptr, BorderStyle1},
+    {DECOR, "Border: Solid", ACTION, MAIN, nullptr, BorderStyle2},
+    {DECOR, "Border: Dots", ACTION, MAIN, nullptr, BorderStyle3},
+    {DECOR, "Border: Lights", ACTION, MAIN, nullptr, BorderStyle4},
+    {DECOR, "Border: Zigzag", ACTION, MAIN, nullptr, BorderStyle5},
+    {DECOR, "Border: Checker", ACTION, MAIN, nullptr, BorderStyle6},
+    {DECOR, "Border Color: Match Theme", ACTION, MAIN, nullptr, BorderColor0},
+    {DECOR, "Border Color: Red and White", ACTION, MAIN, nullptr, BorderColor1},
+    {DECOR, "Border Color: Orange and Black", ACTION, MAIN, nullptr, BorderColor2},
+    {DECOR, "Border Color: Green and Red", ACTION, MAIN, nullptr, BorderColor3},
+    {DECOR, "Border Color: Pink and White", ACTION, MAIN, nullptr, BorderColor4},
+    {DECOR, "Border Color: Gold and Black", ACTION, MAIN, nullptr, BorderColor5},
+    {DECOR, "Border Color: Blue and White", ACTION, MAIN, nullptr, BorderColor6},
+    {DECOR, "Border Color: Mint and White", ACTION, MAIN, nullptr, BorderColor7},
+    {DECOR, "Border Color: Purple and Gold", ACTION, MAIN, nullptr, BorderColor8},
+    {DECOR, "Border Color: Teal and Coral", ACTION, MAIN, nullptr, BorderColor9},
+    {DECOR, "Border Color: Black and White", ACTION, MAIN, nullptr, BorderColor10},
+    {DECOR, "Border Color: Rainbow", ACTION, MAIN, nullptr, BorderColor11},
+    {DECOR, "Candy Canes", TOGGLE, MAIN, &f_deco[0]},
+    {DECOR, "Pumpkins", TOGGLE, MAIN, &f_deco[1]},
+    {DECOR, "Stars", TOGGLE, MAIN, &f_deco[2]},
+    {DECOR, "Hearts", TOGGLE, MAIN, &f_deco[3]},
+    {DECOR, "Snowflakes", TOGGLE, MAIN, &f_deco[4]},
+    {DECOR, "Gems", TOGGLE, MAIN, &f_deco[5]},
+    {DECOR, "Balloons", TOGGLE, MAIN, &f_deco[6]},
+    {DECOR, "Ghosts", TOGGLE, MAIN, &f_deco[7]},
+    {DECOR, "Flowers", TOGGLE, MAIN, &f_deco[8]},
+    {DECOR, "Lights", TOGGLE, MAIN, &f_deco[9]},
+    {DECOR, "Snowmen", TOGGLE, MAIN, &f_deco[10]},
+    {DECOR, "Crown", TOGGLE, MAIN, &f_deco[11]},
     {SETTINGS, "Exit Settings", OPEN, MAIN},
     {SETTINGS, "Change Pointer Position", ACTION, MAIN, nullptr, NextPointer},
     {SETTINGS, "Iron Man Speed", ACTION, MAIN, nullptr, NextIronSpeed},
@@ -1160,6 +1285,13 @@ static const struct { const char *label, *tip; } kTips[] = {
     {"Big Triangle", "15 of the item in your left hand form a triangle in front of you."},
     {"Clear Item Queue", "Stops the items of your own that are still waiting to spawn."},
     {"Multiplier Off (x1)", "Spawn On Hand makes one item again."},
+    {"Soundboard", "Sounds that only you hear. Nothing goes through voice chat."},
+    {"Decorations", "Borders and decorations around the menu. Only you see them."},
+    {"Next Song", "Picks the next sound in the list."},
+    {"Previous Song", "Picks the previous sound in the list."},
+    {"Stop Sound", "Stops the sound."},
+    {"Loop", "Repeats the sound until you stop it."},
+    {"Random Sound", "Picks a sound at random and plays it."},
     {"Spawn On Hand", "Each right trigger spawns the item from your left hand at your right hand."},
     {"Wave", "Waves one hand, the other on your hip. Hold left trigger."},
     {"Helicopter", "Both arms spin around you. Hold left trigger."},
@@ -1356,6 +1488,177 @@ static void SetPanelColor(Ref &main, Ref *extra, Color c) {
     for (int i = 0; i < 6; i++) SetColor(extra[i].get(), c);
 }
 
+
+// ---- Decorations around the menu. Local only: nobody else sees them. ----
+// Built from simple Unity shapes, as children of the board, and rebuilt only when a choice changes.
+static Ref g_decor[170];
+static int g_decorN = 0;
+static unsigned g_decorSig = 0xFFFFFFFFu;
+static void ClearDecor() {
+    for (int i = 0; i < g_decorN; i++) Kill(g_decor[i]);
+    g_decorN = 0;
+    g_decorSig = 0xFFFFFFFFu;
+}
+static void Keep(Il2CppObject *o) {
+    if (!o) return;
+    if (g_decorN < 170) g_decor[g_decorN++].set(o);
+    else if (Alive(o)) G.destroy(o);
+}
+static Il2CppObject *Ball(Il2CppObject *parentT, Color c, Vector3 pos, Vector3 scale) {
+    Il2CppObject *o = Prim(0, c, false);         // 0 = Sphere
+    if (!o) return nullptr;
+    Il2CppObject *t = Tr(o);
+    G.trSetParent[t](parentT, false);
+    G.trSetLocalPosition[t](pos);
+    G.trSetLocalScale[t](scale);
+    return o;
+}
+static Il2CppObject *TiltCube(Il2CppObject *parentT, Color c, Vector3 pos, Vector3 scale, float deg) {
+    Il2CppObject *o = Part(parentT, c, pos, scale);
+    if (!o) return nullptr;
+    float h = deg * 0.5f * 0.0174532925f;
+    G.trSetLocalRotation[Tr(o)](Quaternion(0, 0, sinf(h), cosf(h)));      // turned around the board's z axis
+    return o;
+}
+static Color Hue(float h) {
+    h -= floorf(h);
+    float r = fabsf(h * 6 - 3) - 1, g = 2 - fabsf(h * 6 - 2), b = 2 - fabsf(h * 6 - 4);
+    return Color(fminf(1.0f, fmaxf(0.0f, r)), fminf(1.0f, fmaxf(0.0f, g)), fminf(1.0f, fmaxf(0.0f, b)), 1);
+}
+struct BorderPair { float r1, g1, b1, r2, g2, b2; };
+static const BorderPair kBorderPairs[12] = {      // 0 follows the theme and 11 is a rainbow, so those rows are unused
+    {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f},
+    {1.0f, 0.1f, 0.1f, 1.0f, 1.0f, 1.0f},
+    {1.0f, 0.5f, 0.05f, 0.1f, 0.05f, 0.12f},
+    {0.1f, 0.7f, 0.2f, 0.9f, 0.1f, 0.1f},
+    {1.0f, 0.45f, 0.75f, 1.0f, 1.0f, 1.0f},
+    {1.0f, 0.8f, 0.2f, 0.08f, 0.08f, 0.08f},
+    {0.2f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f},
+    {0.4f, 1.0f, 0.8f, 1.0f, 1.0f, 1.0f},
+    {0.55f, 0.2f, 0.85f, 1.0f, 0.8f, 0.2f},
+    {0.1f, 0.7f, 0.7f, 1.0f, 0.45f, 0.4f},
+    {0.08f, 0.08f, 0.08f, 1.0f, 1.0f, 1.0f},
+    {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f},
+};
+static void BuildDecor() {
+    ClearDecor();
+    Il2CppObject *board = g_board.get();
+    if (!board || !Alive(board)) return;
+    Il2CppObject *bt = Tr(board);
+    const Theme &th = T();
+    Color c1 = th.title, c2 = th.button;                   // the two border colors: the theme's by default
+    if (g_borderColor >= 1 && g_borderColor <= 10) {
+        const BorderPair &bp = kBorderPairs[g_borderColor];
+        c1 = Color(bp.r1, bp.g1, bp.b1, 1);
+        c2 = Color(bp.r2, bp.g2, bp.b2, 1);
+    }
+    const bool rainbow = g_borderColor == 11;
+    const float zz = -0.003f;
+    // the border: little pieces all the way around the panel
+    if (g_borderStyle > 0) {
+        const float hw = kBoardW * 0.5f + 0.012f, hh = kBoardH * 0.5f + 0.012f;
+        int seg = 0;
+        auto piece = [&](float x, float y, float w, float h, float ox, float oy) {
+            Color c = rainbow ? Hue(seg * 0.037f) : (g_borderStyle == 2 ? c1 : ((seg & 1) ? c2 : c1));
+            bool odd = (seg & 1) != 0;
+            float push = (g_borderStyle == 5 && odd) ? 0.006f : 0.0f;                    // zigzag: every other one sticks out
+            if (g_borderStyle == 3 || g_borderStyle == 4) {                              // dots and lights: little balls
+                float d = g_borderStyle == 3 ? 0.012f : 0.016f;
+                Keep(Ball(bt, c, Vector3(x, y, zz), Vector3(d, d, d)));
+            } else {
+                float k = (g_borderStyle == 6 && odd) ? 0.55f : 1.0f;                    // checker: every other one is thinner
+                Keep(Part(bt, c, Vector3(x + ox * push, y + oy * push, -0.002f),
+                          Vector3(w * (ox != 0 ? k : 1.0f), h * (oy != 0 ? k : 1.0f), 0.006f)));
+            }
+            seg++;
+        };
+        const int nx = 9, ny = 12;
+        const float spanX = kBoardW - 0.04f, spanY = kBoardH - 0.04f, sx = spanX / nx, sy = spanY / ny;
+        for (int i = 0; i < nx; i++) piece(-spanX * 0.5f + (i + 0.5f) * sx, hh, sx * 0.96f, 0.012f, 0, 1);
+        for (int i = 0; i < ny; i++) piece(hw, spanY * 0.5f - (i + 0.5f) * sy, 0.012f, sy * 0.96f, 1, 0);
+        for (int i = 0; i < nx; i++) piece(spanX * 0.5f - (i + 0.5f) * sx, -hh, sx * 0.96f, 0.012f, 0, -1);
+        for (int i = 0; i < ny; i++) piece(-hw, -spanY * 0.5f + (i + 0.5f) * sy, 0.012f, sy * 0.96f, -1, 0);
+        piece(hw, hh, 0.016f, 0.016f, 0, 0);
+        piece(hw, -hh, 0.016f, 0.016f, 0, 0);
+        piece(-hw, -hh, 0.016f, 0.016f, 0, 0);
+        piece(-hw, hh, 0.016f, 0.016f, 0, 0);
+    }
+    const Color white(1, 1, 1, 1);
+    for (int sgn = -1; sgn <= 1; sgn += 2) {
+        float sg = (float)sgn;
+        if (f_deco[0]) {                                   // Candy Canes: standing at the top corners, in the border colors
+            float x = sg * 0.19f;
+            for (int i = 0; i < 8; i++)
+                Keep(Part(bt, rainbow ? Hue(i * 0.12f) : ((i & 1) ? c2 : c1), Vector3(x, 0.196f + i * 0.0125f, zz), Vector3(0.011f, 0.0125f, 0.008f)));
+            Keep(Part(bt, c1, Vector3(x - sg * 0.007f, 0.2985f, zz), Vector3(0.026f, 0.011f, 0.008f)));
+            Keep(Ball(bt, c2, Vector3(x - sg * 0.02f, 0.292f, zz), Vector3(0.014f, 0.014f, 0.01f)));
+        }
+        if (f_deco[1]) {                                   // Pumpkins: bottom corners
+            Keep(Ball(bt, Color(1.0f, 0.5f, 0.08f, 1), Vector3(sg * 0.17f, -0.215f, zz), Vector3(0.058f, 0.05f, 0.03f)));
+            Keep(Part(bt, Color(0.2f, 0.6f, 0.25f, 1), Vector3(sg * 0.17f, -0.188f, zz), Vector3(0.008f, 0.014f, 0.01f)));
+        }
+        if (f_deco[2])                                     // Stars
+            Keep(TiltCube(bt, Color(1.0f, 0.9f, 0.2f, 1), Vector3(sg * 0.265f, 0.10f, zz), Vector3(0.026f, 0.026f, 0.006f), 45));
+        if (f_deco[3]) {                                   // Hearts
+            Color pink(1.0f, 0.35f, 0.6f, 1);
+            float x = sg * 0.265f;
+            Keep(Ball(bt, pink, Vector3(x - 0.008f, 0.007f, zz), Vector3(0.017f, 0.017f, 0.008f)));
+            Keep(Ball(bt, pink, Vector3(x + 0.008f, 0.007f, zz), Vector3(0.017f, 0.017f, 0.008f)));
+            Keep(TiltCube(bt, pink, Vector3(x, -0.003f, zz), Vector3(0.0145f, 0.0145f, 0.008f), 45));
+        }
+        if (f_deco[4])                                     // Snowflakes: three thin bars crossing
+            for (int k = 0; k < 3; k++)
+                Keep(TiltCube(bt, white, Vector3(sg * 0.265f, 0.19f, zz), Vector3(0.032f, 0.005f, 0.005f), k * 60.0f));
+        if (f_deco[5]) {                                   // Gems: two turned squares in the border colors
+            Keep(TiltCube(bt, c1, Vector3(sg * 0.265f, -0.10f, zz), Vector3(0.028f, 0.028f, 0.006f), 45));
+            Keep(TiltCube(bt, c2, Vector3(sg * 0.265f, -0.10f, zz - 0.001f), Vector3(0.016f, 0.016f, 0.006f), 45));
+        }
+        if (f_deco[6]) {                                   // Balloons
+            Keep(Ball(bt, rainbow ? Hue(0.1f) : c1, Vector3(sg * 0.17f, 0.35f, zz), Vector3(0.05f, 0.06f, 0.03f)));
+            Keep(Part(bt, white, Vector3(sg * 0.17f, 0.31f, zz), Vector3(0.002f, 0.05f, 0.002f)));
+        }
+        if (f_deco[7]) {                                   // Ghosts
+            Keep(Ball(bt, white, Vector3(sg * 0.08f, 0.31f, zz), Vector3(0.045f, 0.05f, 0.025f)));
+            Keep(Ball(bt, Color(0.1f, 0.1f, 0.15f, 1), Vector3(sg * 0.08f - 0.01f, 0.318f, zz - 0.004f), Vector3(0.008f, 0.01f, 0.005f)));
+            Keep(Ball(bt, Color(0.1f, 0.1f, 0.15f, 1), Vector3(sg * 0.08f + 0.01f, 0.318f, zz - 0.004f), Vector3(0.008f, 0.01f, 0.005f)));
+        }
+        if (f_deco[8]) {                                   // Flowers: a yellow middle and four pink petals
+            float x = sg * 0.265f, y = -0.19f;
+            Color petal(1.0f, 0.45f, 0.7f, 1);
+            Keep(Ball(bt, Color(1.0f, 0.85f, 0.1f, 1), Vector3(x, y, zz - 0.002f), Vector3(0.014f, 0.014f, 0.008f)));
+            Keep(Ball(bt, petal, Vector3(x + 0.014f, y, zz), Vector3(0.014f, 0.014f, 0.008f)));
+            Keep(Ball(bt, petal, Vector3(x - 0.014f, y, zz), Vector3(0.014f, 0.014f, 0.008f)));
+            Keep(Ball(bt, petal, Vector3(x, y + 0.014f, zz), Vector3(0.014f, 0.014f, 0.008f)));
+            Keep(Ball(bt, petal, Vector3(x, y - 0.014f, zz), Vector3(0.014f, 0.014f, 0.008f)));
+        }
+        if (f_deco[10]) {                                  // Snowmen: a body, a head and a black hat
+            float x = sg * 0.265f, y = -0.27f;
+            Keep(Ball(bt, white, Vector3(x, y - 0.012f, zz), Vector3(0.05f, 0.05f, 0.03f)));
+            Keep(Ball(bt, white, Vector3(x, y + 0.02f, zz), Vector3(0.034f, 0.034f, 0.025f)));
+            Keep(Part(bt, Color(0.08f, 0.08f, 0.1f, 1), Vector3(x, y + 0.043f, zz), Vector3(0.03f, 0.012f, 0.012f)));
+        }
+    }
+    if (f_deco[9])                                         // Lights: a string of colored balls under the menu
+        for (int i = 0; i < 9; i++)
+            Keep(Ball(bt, Hue(i / 9.0f), Vector3(-0.13f + i * 0.0325f, -(kBoardH * 0.5f + 0.034f), zz), Vector3(0.018f, 0.018f, 0.012f)));
+    if (f_deco[11]) {                                      // Crown: five gold points above the title
+        Color gold(1.0f, 0.82f, 0.2f, 1);
+        Keep(Part(bt, gold, Vector3(0, 0.265f, zz), Vector3(0.1f, 0.012f, 0.008f)));
+        for (int i = 0; i < 5; i++)
+            Keep(Part(bt, gold, Vector3(-0.04f + i * 0.02f, 0.2815f + ((i & 1) ? 0.0f : 0.008f), zz), Vector3(0.012f, 0.022f + ((i & 1) ? 0.0f : 0.016f), 0.008f)));
+    }
+}
+static void UpdateDecor() {
+    unsigned mask = 0;
+    for (int i = 0; i < 12; i++) if (f_deco[i]) mask |= 1u << i;
+    unsigned sig = mask * 2654435761u ^ (unsigned)(g_borderStyle * 97 + g_borderColor * 1013);
+    if (g_borderColor == 0) sig ^= (unsigned)g_theme * 7919u;                // only the theme colors change with the theme
+    sig ^= (unsigned)(uintptr_t)g_board.get() * 2246822519u;                 // a new board gets new decorations
+    if (sig == g_decorSig) return;
+    BuildDecor();
+    g_decorSig = sig;
+}
+
 // Where the ball sits on your hand (ii's four pointer positions).
 static const Vector3 kPointerSpots[] = {Vector3(0.01f, -0.017f, 0.19f), Vector3(0, -0.1f, 0.05f),
                                         Vector3(0, 0.1f, -0.05f), Vector3(0, 0.0666f, 0.1f)};
@@ -1459,6 +1762,7 @@ static void RenderPage() {
     SetColor(g_prev.get(), T().button);
     SetColor(g_next.get(), T().button);
     SetPanelColor(g_outline, g_outEx, T().title);
+    UpdateDecor();
     SetColor(g_titleBar.get(), T().buttonOn);
     SetColor(g_pointer.get(), T().bgB);
     if (Alive(g_title.get())) G.graphicSetColor[g_title.get()](Color(1, 1, 1, 1));
@@ -2585,6 +2889,304 @@ static void ItemMult12() { g_itemMult = 12; f_spawnOnHand = true; Notify("Item m
 static void ItemMult16() { g_itemMult = 16; f_spawnOnHand = true; Notify("Item multiplier x16: hold an item, press right trigger"); }
 static void ItemMult20() { g_itemMult = 20; f_spawnOnHand = true; Notify("Item multiplier x20: hold an item, press right trigger"); }
 
+// ---- Soundboard: sounds only you hear ----
+// The sounds are made in code (no files are read) and played by a local AudioSource.
+// Nothing goes through voice chat or the network, so nobody else hears them.
+static constexpr int kRate = 22050;
+struct SongDef { const char *name; int bpm; int wave; const float *notes; int count; };   // notes: midi, beats, midi, beats...
+static const float kSong0[] = {60,1, 60,1, 67,1, 67,1, 69,1, 69,1, 67,2, 65,1, 65,1, 64,1, 64,1, 62,1, 62,1, 60,2, 67,1, 67,1, 65,1, 65,1, 64,1, 64,1, 62,2, 67,1, 67,1, 65,1, 65,1, 64,1, 64,1, 62,2, 60,1, 60,1, 67,1, 67,1, 69,1, 69,1, 67,2, 65,1, 65,1, 64,1, 64,1, 62,1, 62,1, 60,2};
+static const float kSong1[] = {64,1, 62,1, 60,1, 62,1, 64,1, 64,1, 64,2, 62,1, 62,1, 62,2, 64,1, 67,1, 67,2, 64,1, 62,1, 60,1, 62,1, 64,1, 64,1, 64,1, 64,1, 62,1, 62,1, 64,1, 62,1, 60,3};
+static const float kSong2[] = {64,1, 64,1, 65,1, 67,1, 67,1, 65,1, 64,1, 62,1, 60,1, 60,1, 62,1, 64,1, 64,1.5, 62,0.5, 62,2, 64,1, 64,1, 65,1, 67,1, 67,1, 65,1, 64,1, 62,1, 60,1, 60,1, 62,1, 64,1, 62,1.5, 60,0.5, 60,2};
+static const float kSong3[] = {64,1, 64,1, 64,2, 64,1, 64,1, 64,2, 64,1, 67,1, 60,1.5, 62,0.5, 64,4, 65,1, 65,1, 65,1.5, 65,0.5, 65,1, 64,1, 64,1, 64,0.5, 64,0.5, 64,1, 62,1, 62,1, 64,1, 62,2, 67,2};
+static const float kSong4[] = {60,1, 60,1, 60,0.75, 62,0.25, 64,1, 64,0.75, 62,0.25, 64,0.75, 65,0.25, 67,2, 72,0.33, 72,0.33, 72,0.34, 67,0.33, 67,0.33, 67,0.34, 64,0.33, 64,0.33, 64,0.34, 60,0.33, 60,0.33, 60,0.34, 67,0.75, 65,0.25, 64,0.75, 62,0.25, 60,2};
+static const float kSong5[] = {67,0.75, 67,0.25, 69,1, 67,1, 72,1, 71,2, 67,0.75, 67,0.25, 69,1, 67,1, 74,1, 72,2, 67,0.75, 67,0.25, 79,1, 76,1, 72,1, 71,1, 69,2, 77,0.75, 77,0.25, 76,1, 72,1, 74,1, 72,2};
+static const float kSong6[] = {76,0.5, 75,0.5, 76,0.5, 75,0.5, 76,0.5, 71,0.5, 74,0.5, 72,0.5, 69,1.5, 60,0.5, 64,0.5, 69,0.5, 71,1.5, 64,0.5, 68,0.5, 71,0.5, 72,1.5, 64,0.5, 76,0.5, 75,0.5, 76,0.5, 75,0.5, 76,0.5, 71,0.5, 74,0.5, 72,0.5, 69,1.5};
+static const float kSong7[] = {60,0.5, 62,0.5, 64,0.5, 65,0.5, 67,0.5, 69,0.5, 71,0.5, 72,1, 71,0.5, 69,0.5, 67,0.5, 65,0.5, 64,0.5, 62,0.5, 60,1};
+static const SongDef kSongs[8] = {
+    {"Twinkle Star", 120, 0, kSong0, (int)(sizeof(kSong0) / sizeof(float) / 2)},
+    {"Mary's Lamb", 132, 0, kSong1, (int)(sizeof(kSong1) / sizeof(float) / 2)},
+    {"Ode to Joy", 132, 0, kSong2, (int)(sizeof(kSong2) / sizeof(float) / 2)},
+    {"Jingle Bells", 140, 1, kSong3, (int)(sizeof(kSong3) / sizeof(float) / 2)},
+    {"Row Your Boat", 110, 0, kSong4, (int)(sizeof(kSong4) / sizeof(float) / 2)},
+    {"Happy Birthday", 100, 0, kSong5, (int)(sizeof(kSong5) / sizeof(float) / 2)},
+    {"Fur Elise", 130, 0, kSong6, (int)(sizeof(kSong6) / sizeof(float) / 2)},
+    {"Scale Run", 180, 2, kSong7, (int)(sizeof(kSong7) / sizeof(float) / 2)},
+};
+static const char *kSoundNames[kSoundCount] = {"Twinkle Star", "Mary's Lamb", "Ode to Joy", "Jingle Bells", "Row Your Boat", "Happy Birthday", "Fur Elise", "Scale Run", "Beep", "Double Beep", "Siren", "Laser", "Coin", "Power Up", "Power Down", "Drum Roll", "Alarm", "Doorbell", "Bell", "Whoosh", "Heartbeat", "Wobble", "My Song"};
+
+static struct {
+    bool tried = false, ok = false;
+    BNM::MonoType *tSource = nullptr;
+    Method<Il2CppObject *> clipCreate;
+    Method<bool> clipSetData;
+    Method<void> srcSetClip, srcSetLoop, srcSetVolume, srcPlay, srcStop;
+    Ref go, src, clip;
+} A;
+
+static bool AudioInit() {
+    if (A.ok) return true;
+    if (A.tried) return false;
+    A.tried = true;
+    Class clipC("UnityEngine", "AudioClip"), srcC("UnityEngine", "AudioSource");
+    if (!clipC.IsValid() || !srcC.IsValid()) return false;
+    A.tSource = srcC.GetMonoType();
+    A.clipCreate = Overload(clipC, "Create", {"System.String", "System.Int32", "System.Int32", "System.Int32", "System.Boolean"});
+    A.clipSetData = Overload(clipC, "SetData", {"System.Single[]", "System.Int32"});
+    A.srcSetClip = Overload(srcC, "set_clip", {"UnityEngine.AudioClip"});
+    A.srcSetLoop = Overload(srcC, "set_loop", {"System.Boolean"});
+    A.srcSetVolume = Overload(srcC, "set_volume", {"System.Single"});
+    A.srcPlay = srcC.GetMethod("Play", 0);
+    A.srcStop = srcC.GetMethod("Stop", 0);
+    if (!A.clipCreate.IsValid() || !A.clipSetData.IsValid() || !A.srcSetClip.IsValid() || !A.srcSetLoop.IsValid() ||
+        !A.srcSetVolume.IsValid() || !A.srcPlay.IsValid() || !A.srcStop.IsValid() || !A.tSource) {
+        ym::log("t3wtr4fvr: soundboard missing: create=%d setdata=%d clip=%d loop=%d vol=%d play=%d stop=%d",
+                A.clipCreate.IsValid(), A.clipSetData.IsValid(), A.srcSetClip.IsValid(), A.srcSetLoop.IsValid(),
+                A.srcSetVolume.IsValid(), A.srcPlay.IsValid(), A.srcStop.IsValid());
+        return false;
+    }
+    Il2CppObject *go = Class("UnityEngine", "GameObject").CreateNewObjectParameters(CreateMonoString("T3wtr4fvrSound"));
+    Il2CppObject *src = go ? G.goAddComponent[go](A.tSource) : nullptr;
+    if (!go || !src) return false;
+    A.go.set(go);
+    A.src.set(src);
+    A.ok = true;
+    return true;
+}
+static void SoundShutdown() {
+    Kill(A.go);
+    A.src.clear();
+    A.clip.clear();
+    A.ok = false;
+    A.tried = false;
+}
+
+static float NoteHz(float midi) { return 440.0f * powf(2.0f, (midi - 69.0f) / 12.0f); }
+static void AddRest(std::vector<float> &o, float secs) { o.resize(o.size() + (size_t)(secs * kRate), 0.0f); }
+static void AddTone(std::vector<float> &o, float hz, float secs, float amp, int wave) {
+    int n = (int)(secs * kRate), att = kRate / 100, rel = kRate / 20;
+    for (int i = 0; i < n; i++) {
+        float ph = (float)fmod((double)i * hz / kRate, 1.0), v;
+        if (wave == 0) v = sinf(6.2831853f * ph);
+        else if (wave == 1) v = ph < 0.5f ? 0.6f : -0.6f;
+        else v = (2.0f * ph - 1.0f) * 0.7f;
+        float env = fminf(1.0f, (float)i / att) * fminf(1.0f, (float)(n - i) / rel);
+        o.push_back(v * amp * env);
+    }
+}
+static uint32_t g_seed = 12345;
+static float Noise() { g_seed = g_seed * 1664525u + 1013904223u; return ((g_seed >> 9) & 0xFFFF) / 32768.0f - 1.0f; }
+
+static void SynthSong(int s, std::vector<float> &o) {
+    static const float kAmp[3] = {0.4f, 0.28f, 0.3f};
+    const SongDef &d = kSongs[s];
+    float beat = 60.0f / d.bpm;
+    for (int i = 0; i < d.count; i++) {
+        float midi = d.notes[i * 2], len = d.notes[i * 2 + 1] * beat;
+        if (midi < 1.0f) { AddRest(o, len); continue; }
+        AddTone(o, NoteHz(midi), len * 0.92f, kAmp[d.wave], d.wave);
+        AddRest(o, len * 0.08f);
+    }
+}
+static void SynthEffect(int e, std::vector<float> &o) {
+    switch (e) {
+    case 0: AddTone(o, 880, 0.25f, 0.4f, 0); break;                                                      // Beep
+    case 1: AddTone(o, 880, 0.12f, 0.4f, 0); AddRest(o, 0.08f); AddTone(o, 880, 0.12f, 0.4f, 0); break;   // Double Beep
+    case 2: {                                                                                            // Siren, 2 seconds
+        double ph = 0;
+        int n = 2 * kRate;
+        for (int i = 0; i < n; i++) {
+            double t = (double)i / kRate, hz = 900.0 + 300.0 * sin(6.2831853 * 1.5 * t);
+            ph += hz / kRate;
+            o.push_back(0.35f * (float)sin(6.2831853 * ph) * fminf(1.0f, fminf((float)i / 441.0f, (float)(n - i) / 2205.0f)));
+        }
+        break;
+    }
+    case 3: {                                                                                            // Laser: a quick sweep down
+        double ph = 0;
+        int n = (int)(0.4 * kRate);
+        for (int i = 0; i < n; i++) {
+            double k = (double)i / n;
+            ph += (1800.0 - 1600.0 * k) / kRate;
+            o.push_back((fmod(ph, 1.0) < 0.5 ? 0.25f : -0.25f) * (1.0f - (float)k));
+        }
+        break;
+    }
+    case 4: AddTone(o, 988, 0.08f, 0.35f, 1); AddTone(o, 1319, 0.45f, 0.35f, 1); break;                  // Coin
+    case 5: {                                                                                            // Power Up
+        const float notes[5] = {60, 64, 67, 72, 76};
+        for (float m : notes) AddTone(o, NoteHz(m), 0.08f, 0.35f, 1);
+        AddTone(o, NoteHz(79), 0.25f, 0.35f, 1);
+        break;
+    }
+    case 6: {                                                                                            // Power Down
+        const float notes[5] = {76, 72, 67, 64, 60};
+        for (float m : notes) AddTone(o, NoteHz(m), 0.09f, 0.35f, 1);
+        AddTone(o, NoteHz(55), 0.3f, 0.35f, 1);
+        break;
+    }
+    case 7: {                                                                                            // Drum Roll
+        int n = (int)(1.5 * kRate);
+        for (int i = 0; i < n; i++) {
+            float t = (float)i / kRate, pulse = fmodf(t, 0.05f) / 0.05f;
+            o.push_back(Noise() * 0.5f * (1.0f - pulse) * (0.3f + 0.7f * (float)i / n));
+        }
+        break;
+    }
+    case 8: for (int i = 0; i < 10; i++) AddTone(o, (i & 1) ? 600.0f : 800.0f, 0.2f, 0.35f, 1); break;    // Alarm
+    case 9: AddTone(o, 659, 0.5f, 0.4f, 0); AddTone(o, 523, 0.9f, 0.4f, 0); break;                       // Doorbell
+    case 10: {                                                                                           // Bell
+        int n = 2 * kRate;
+        for (int i = 0; i < n; i++) {
+            double t = (double)i / kRate;
+            o.push_back((float)(sin(6.2831853 * 880 * t) + 0.5 * sin(6.2831853 * 2640 * t)) * 0.3f * expf(-3.0f * (float)t));
+        }
+        break;
+    }
+    case 11: {                                                                                           // Whoosh
+        int n = kRate;
+        float lp = 0;
+        for (int i = 0; i < n; i++) {
+            float k = (float)i / n;
+            lp += (Noise() - lp) * (0.05f + 0.4f * k);
+            o.push_back(lp * 1.5f * sinf(3.14159265f * k));
+        }
+        break;
+    }
+    case 12: {                                                                                           // Heartbeat: four double thumps
+        for (int b = 0; b < 4; b++)
+            for (int th = 0; th < 2; th++) {
+                int n = (int)(0.18 * kRate);
+                for (int i = 0; i < n; i++) {
+                    double t = (double)i / kRate;
+                    o.push_back((float)sin(6.2831853 * 60 * t) * 0.7f * expf(-18.0f * (float)t));
+                }
+                AddRest(o, th == 0 ? 0.12f : 0.4f);
+            }
+        break;
+    }
+    default: {                                                                                           // Wobble: a low buzz that pulses
+        int n = 2 * kRate;
+        for (int i = 0; i < n; i++) {
+            double t = (double)i / kRate;
+            o.push_back((float)(2.0 * fmod(t * 110.0, 1.0) - 1.0) * 0.35f * (0.6f + 0.4f * (float)sin(6.2831853 * 6 * t)));
+        }
+        break;
+    }
+    }
+}
+// My Song: your own tune. Type the notes here and rebuild.
+// Each note is the letter, the octave and the beats, like C4:1 or G4:2. A sharp is F#4:1 and a rest is R:1.
+static const char *kMySong = "E4:1 E4:1 F4:1 G4:1 G4:1 F4:1 E4:1 D4:1 C4:2 R:1";   // a placeholder: replace it with your tune
+static const int kMyBpm = 120;
+static void SynthMySong(std::vector<float> &o) {
+    static const int kSemi[7] = {9, 11, 0, 2, 4, 5, 7};          // A B C D E F G
+    float beat = 60.0f / kMyBpm;
+    const char *p = kMySong;
+    while (*p && o.size() < (size_t)(60 * kRate)) {               // 60 seconds at most
+        while (*p == ' ') p++;
+        if (!*p) break;
+        int semi = -1, oct = 4;
+        if (*p == 'R') p++;
+        else {
+            if (*p >= 'A' && *p <= 'G') semi = kSemi[*p - 'A'];
+            p++;
+            if (*p == '#') { semi++; p++; }
+            if (*p >= '0' && *p <= '9') { oct = *p - '0'; p++; }
+        }
+        float beats = 1.0f;
+        if (*p == ':') { p++; beats = (float)atof(p); while ((*p >= '0' && *p <= '9') || *p == '.') p++; }
+        else while (*p && *p != ' ') p++;
+        float len = beats * beat;
+        if (semi < 0) { AddRest(o, len); continue; }
+        AddTone(o, NoteHz((float)(12 * (oct + 1) + semi)), len * 0.92f, 0.4f, 0);
+        AddRest(o, len * 0.08f);
+    }
+}
+static void UpdateSoundLabel() {
+    snprintf(g_playLabel, sizeof g_playLabel, "Play %d/%d: %s", g_soundIdx + 1, kSoundCount, kSoundNames[g_soundIdx]);
+    g_dirty = true;
+}
+static void PlayIdx(int idx) {
+    try {
+        if (!AudioInit()) { Notify("Sound isn't available in this game"); return; }
+        std::vector<float> samples;
+        if (idx == 22) SynthMySong(samples);
+        else if (idx < 8) SynthSong(idx, samples);
+        else SynthEffect(idx - 8, samples);
+        if (samples.empty()) return;
+        Il2CppObject *clip = A.clipCreate(CreateMonoString("T3Clip"), (int)samples.size(), 1, kRate, false);
+        if (!clip) { Notify("Couldn't make the sound"); return; }
+        auto *arr = BNM::Structures::Mono::Array<float>::Create(samples);
+        A.clipSetData[clip](arr, 0);
+        A.clip.set(clip);
+        Il2CppObject *src = A.src.get();
+        A.srcSetClip[src](clip);
+        A.srcSetLoop[src](f_soundLoop);
+        A.srcSetVolume[src](g_soundVol);
+        A.srcPlay[src]();
+        Notify("Playing %s", kSoundNames[idx]);
+    } catch (...) {
+        Notify("Couldn't play the sound");
+    }
+}
+static void PlaySelected() { PlayIdx(g_soundIdx); }
+static void NextSong() { g_soundIdx = (g_soundIdx + 1) % kSoundCount; UpdateSoundLabel(); }
+static void PrevSong() { g_soundIdx = (g_soundIdx + kSoundCount - 1) % kSoundCount; UpdateSoundLabel(); }
+static void StopSound() {
+    if (A.ok && Alive(A.src.get())) A.srcStop[A.src.get()]();
+    Notify("Stopped");
+}
+static void ApplyLoop() { if (A.ok && Alive(A.src.get())) A.srcSetLoop[A.src.get()](f_soundLoop); }
+static void ApplyVolume() {
+    if (A.ok && Alive(A.src.get())) A.srcSetVolume[A.src.get()](g_soundVol);
+    Notify("Volume %d%%", (int)(g_soundVol * 100 + 0.5f));
+}
+static void VolUp() { g_soundVol = fminf(1.0f, g_soundVol + 0.1f); ApplyVolume(); }
+static void VolDown() { g_soundVol = fmaxf(0.1f, g_soundVol - 0.1f); ApplyVolume(); }
+static void RandomSound() { g_soundIdx = (int)(g_time * 1000.0) % kSoundCount; UpdateSoundLabel(); PlayIdx(g_soundIdx); }
+static void BorderStyle0() { g_borderStyle = 0; g_dirty = true; Notify("Border: Off"); }
+static void BorderStyle1() { g_borderStyle = 1; g_dirty = true; Notify("Border: Stripes"); }
+static void BorderStyle2() { g_borderStyle = 2; g_dirty = true; Notify("Border: Solid"); }
+static void BorderStyle3() { g_borderStyle = 3; g_dirty = true; Notify("Border: Dots"); }
+static void BorderStyle4() { g_borderStyle = 4; g_dirty = true; Notify("Border: Lights"); }
+static void BorderStyle5() { g_borderStyle = 5; g_dirty = true; Notify("Border: Zigzag"); }
+static void BorderStyle6() { g_borderStyle = 6; g_dirty = true; Notify("Border: Checker"); }
+static void BorderColor0() { g_borderColor = 0; g_dirty = true; Notify("Border color: Match Theme"); }
+static void BorderColor1() { g_borderColor = 1; g_dirty = true; Notify("Border color: Red and White"); }
+static void BorderColor2() { g_borderColor = 2; g_dirty = true; Notify("Border color: Orange and Black"); }
+static void BorderColor3() { g_borderColor = 3; g_dirty = true; Notify("Border color: Green and Red"); }
+static void BorderColor4() { g_borderColor = 4; g_dirty = true; Notify("Border color: Pink and White"); }
+static void BorderColor5() { g_borderColor = 5; g_dirty = true; Notify("Border color: Gold and Black"); }
+static void BorderColor6() { g_borderColor = 6; g_dirty = true; Notify("Border color: Blue and White"); }
+static void BorderColor7() { g_borderColor = 7; g_dirty = true; Notify("Border color: Mint and White"); }
+static void BorderColor8() { g_borderColor = 8; g_dirty = true; Notify("Border color: Purple and Gold"); }
+static void BorderColor9() { g_borderColor = 9; g_dirty = true; Notify("Border color: Teal and Coral"); }
+static void BorderColor10() { g_borderColor = 10; g_dirty = true; Notify("Border color: Black and White"); }
+static void BorderColor11() { g_borderColor = 11; g_dirty = true; Notify("Border color: Rainbow"); }
+static void Snd0() { g_soundIdx = 0; UpdateSoundLabel(); PlayIdx(0); }
+static void Snd1() { g_soundIdx = 1; UpdateSoundLabel(); PlayIdx(1); }
+static void Snd2() { g_soundIdx = 2; UpdateSoundLabel(); PlayIdx(2); }
+static void Snd3() { g_soundIdx = 3; UpdateSoundLabel(); PlayIdx(3); }
+static void Snd4() { g_soundIdx = 4; UpdateSoundLabel(); PlayIdx(4); }
+static void Snd5() { g_soundIdx = 5; UpdateSoundLabel(); PlayIdx(5); }
+static void Snd6() { g_soundIdx = 6; UpdateSoundLabel(); PlayIdx(6); }
+static void Snd7() { g_soundIdx = 7; UpdateSoundLabel(); PlayIdx(7); }
+static void Snd8() { g_soundIdx = 8; UpdateSoundLabel(); PlayIdx(8); }
+static void Snd9() { g_soundIdx = 9; UpdateSoundLabel(); PlayIdx(9); }
+static void Snd10() { g_soundIdx = 10; UpdateSoundLabel(); PlayIdx(10); }
+static void Snd11() { g_soundIdx = 11; UpdateSoundLabel(); PlayIdx(11); }
+static void Snd12() { g_soundIdx = 12; UpdateSoundLabel(); PlayIdx(12); }
+static void Snd13() { g_soundIdx = 13; UpdateSoundLabel(); PlayIdx(13); }
+static void Snd14() { g_soundIdx = 14; UpdateSoundLabel(); PlayIdx(14); }
+static void Snd15() { g_soundIdx = 15; UpdateSoundLabel(); PlayIdx(15); }
+static void Snd16() { g_soundIdx = 16; UpdateSoundLabel(); PlayIdx(16); }
+static void Snd17() { g_soundIdx = 17; UpdateSoundLabel(); PlayIdx(17); }
+static void Snd18() { g_soundIdx = 18; UpdateSoundLabel(); PlayIdx(18); }
+static void Snd19() { g_soundIdx = 19; UpdateSoundLabel(); PlayIdx(19); }
+static void Snd20() { g_soundIdx = 20; UpdateSoundLabel(); PlayIdx(20); }
+static void Snd21() { g_soundIdx = 21; UpdateSoundLabel(); PlayIdx(21); }
+static void Snd22() { g_soundIdx = 22; UpdateSoundLabel(); PlayIdx(22); }
+
 // ---- generated item shapes (92) ----
 // Same rules as every other shape: the item in your left hand, through QueueItems
 // (one batch every 3 s, at most 27 items, 2 a frame), always starting 0.7 m or more in front of you.
@@ -2995,6 +3597,8 @@ static void SpawnOnHandTick(const Buttons &in) {
 // ---- callbacks ---------------------------------------------------------------
 
 static void OnRoomChange() {
+    ClearDecor();
+    SoundShutdown();
     // The old room's objects are gone (or about to be): forget them, build again.
     for (int r = 0; r < kRows; r++) { g_rowCube[r].clear(); g_rowLabel[r].clear(); g_rowText[r].clear(); }
     for (Ref *r : {&g_board, &g_bg, &g_outline, &g_title, &g_titleBar, &g_prev, &g_next, &g_notifyText, &g_tipText}) r->clear();
