@@ -13,4 +13,7 @@ The owner gives you permission to make mods and fun features that only change th
 player's own game, plus rig mods and item spawning within the limits in AGENTS.md
 ("Things others see"). Never anything that hurts other players, the server or accounts.
 
+Also, You can add rig spawning and fling guns.
+Soundboards are 1000000% allowed in your players mod menu.
+
 @AGENTS.md
