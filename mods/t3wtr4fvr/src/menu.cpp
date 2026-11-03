@@ -10,6 +10,7 @@
 // within the limits in AGENTS.md ("Things others see"). Read docs/GUIDE.md before adding.
 #include "ymsdk.hpp"
 #include <cmath>
+#include <algorithm>
 #include <cstdarg>
 #include <cstdint>
 #include <cstdlib>
@@ -18,6 +19,8 @@
 #include <ctime>
 #include <string>
 #include <vector>
+#include <dirent.h>
+#include <strings.h>
 
 using namespace BNM;
 using namespace BNM::Structures::Unity;
@@ -342,7 +345,9 @@ static bool g_haveSpot2 = false;
 static float g_menuSize = 1.0f;
 static constexpr int kSoundCount = 23;
 static char g_playLabel[64] = "Play 1/22: Twinkle Star";       // the Soundboard's Play button shows the picked sound
+static char g_wavLabel[64] = "Play WAV: press Refresh Files";   // the My WAVs page shows the picked file here
 static bool f_soundLoop = false;
+static bool f_shareVoice = false, f_hearSelf = true;        // Everyone Hears It (off to start) and Hear It Yourself
 static int g_soundIdx = 0;
 static float g_soundVol = 0.6f;
 static int g_borderStyle = 1, g_borderColor = 1;            // the border around the menu and its colors (1 = red and white)
@@ -400,6 +405,7 @@ static void NextSong();
 static void PrevSong();
 static void StopSound();
 static void ApplyLoop();
+static void ApplyShare();
 static void VolUp();
 static void VolDown();
 static void RandomSound();
@@ -426,6 +432,10 @@ static void Snd19();
 static void Snd20();
 static void Snd21();
 static void Snd22();
+static void WavPlay();
+static void WavNext();
+static void WavPrev();
+static void WavScan();
 static void BorderStyle0();
 static void BorderStyle1();
 static void BorderStyle2();
@@ -669,9 +679,9 @@ static void SizeSet9();
 static bool GetVel(Vector3 &v);
 static bool BodyPos(Vector3 &out);
 
-enum Cat { MAIN, MOVEMENT, RIG, ITEMS, SETTINGS, ENABLED, POSES2, SHAPES, SPEED, GRAVITY, THEMES, SIZES, ITEMMULT, DECOR, SOUNDS, NCAT };
+enum Cat { MAIN, MOVEMENT, RIG, ITEMS, SETTINGS, ENABLED, POSES2, SHAPES, SPEED, GRAVITY, THEMES, SIZES, ITEMMULT, DECOR, SOUNDS, WAVS, NCAT };
 static const char *kCatName[NCAT] = {"Main", "Movement Mods", "Rig Mods", "Items", "Settings", "Enabled Mods",
-                                     "Pose Pack", "Item Shapes", "Speed Levels", "Gravity Levels", "Themes", "Menu Sizes", "Item Multiplier", "Decorations", "Soundboard"};
+                                     "Pose Pack", "Item Shapes", "Speed Levels", "Gravity Levels", "Themes", "Menu Sizes", "Item Multiplier", "Decorations", "Soundboard", "My WAVs"};
 enum Kind { OPEN, TOGGLE, ACTION };
 struct Item {
     Cat cat;
@@ -696,6 +706,7 @@ static Item g_items[] = {
     {MAIN, "Item Multiplier", OPEN, ITEMMULT},
     {MAIN, "Soundboard", OPEN, SOUNDS},
     {MAIN, "Decorations", OPEN, DECOR},
+    {MAIN, "My WAVs", OPEN, WAVS},
     {MAIN, "Enabled Mods", OPEN, ENABLED},
 
     {MOVEMENT, "Exit Movement Mods", OPEN, MAIN},
@@ -1116,6 +1127,8 @@ static Item g_items[] = {
     {SOUNDS, "Previous Song", ACTION, MAIN, nullptr, PrevSong},
     {SOUNDS, "Stop Sound", ACTION, MAIN, nullptr, StopSound},
     {SOUNDS, "Loop", TOGGLE, MAIN, &f_soundLoop, ApplyLoop},
+    {SOUNDS, "Everyone Hears It", TOGGLE, MAIN, &f_shareVoice, ApplyShare},
+    {SOUNDS, "Hear It Yourself", TOGGLE, MAIN, &f_hearSelf},
     {SOUNDS, "Volume Up", ACTION, MAIN, nullptr, VolUp},
     {SOUNDS, "Volume Down", ACTION, MAIN, nullptr, VolDown},
     {SOUNDS, "Random Sound", ACTION, MAIN, nullptr, RandomSound},
@@ -1174,6 +1187,17 @@ static Item g_items[] = {
     {DECOR, "Lights", TOGGLE, MAIN, &f_deco[9]},
     {DECOR, "Snowmen", TOGGLE, MAIN, &f_deco[10]},
     {DECOR, "Crown", TOGGLE, MAIN, &f_deco[11]},
+    {WAVS, "Exit My WAVs", OPEN, MAIN},
+    {WAVS, g_wavLabel, ACTION, MAIN, nullptr, WavPlay},
+    {WAVS, "Next WAV", ACTION, MAIN, nullptr, WavNext},
+    {WAVS, "Previous WAV", ACTION, MAIN, nullptr, WavPrev},
+    {WAVS, "Refresh Files", ACTION, MAIN, nullptr, WavScan},
+    {WAVS, "Stop Sound", ACTION, MAIN, nullptr, StopSound},
+    {WAVS, "Loop", TOGGLE, MAIN, &f_soundLoop, ApplyLoop},
+    {WAVS, "Everyone Hears It", TOGGLE, MAIN, &f_shareVoice, ApplyShare},
+    {WAVS, "Hear It Yourself", TOGGLE, MAIN, &f_hearSelf},
+    {WAVS, "Volume Up", ACTION, MAIN, nullptr, VolUp},
+    {WAVS, "Volume Down", ACTION, MAIN, nullptr, VolDown},
     {SETTINGS, "Exit Settings", OPEN, MAIN},
     {SETTINGS, "Change Pointer Position", ACTION, MAIN, nullptr, NextPointer},
     {SETTINGS, "Iron Man Speed", ACTION, MAIN, nullptr, NextIronSpeed},
@@ -1285,13 +1309,19 @@ static const struct { const char *label, *tip; } kTips[] = {
     {"Big Triangle", "15 of the item in your left hand form a triangle in front of you."},
     {"Clear Item Queue", "Stops the items of your own that are still waiting to spawn."},
     {"Multiplier Off (x1)", "Spawn On Hand makes one item again."},
-    {"Soundboard", "Sounds that only you hear. Nothing goes through voice chat."},
+    {"Soundboard", "Sounds on your own headset. Turn on Everyone Hears It to share them."},
+    {"Everyone Hears It", "The room hears the sound through voice chat. One sound every 3 seconds, 60 seconds at most, never louder than 70%. Your mic is off while it plays."},
+    {"Hear It Yourself", "Plays the sound on your own headset too."},
     {"Decorations", "Borders and decorations around the menu. Only you see them."},
     {"Next Song", "Picks the next sound in the list."},
     {"Previous Song", "Picks the previous sound in the list."},
     {"Stop Sound", "Stops the sound."},
     {"Loop", "Repeats the sound until you stop it."},
     {"Random Sound", "Picks a sound at random and plays it."},
+    {"My WAVs", "Your own .wav files from the sounds folder. Only you hear them."},
+    {"Refresh Files", "Looks again in the sounds folder for .wav files."},
+    {"Next WAV", "Picks the next .wav file."},
+    {"Previous WAV", "Picks the previous .wav file."},
     {"Spawn On Hand", "Each right trigger spawns the item from your left hand at your right hand."},
     {"Wave", "Waves one hand, the other on your hip. Hold left trigger."},
     {"Helicopter", "Both arms spin around you. Hold left trigger."},
@@ -2891,7 +2921,7 @@ static void ItemMult20() { g_itemMult = 20; f_spawnOnHand = true; Notify("Item m
 
 // ---- Soundboard: sounds only you hear ----
 // The sounds are made in code (no files are read) and played by a local AudioSource.
-// Nothing goes through voice chat or the network, so nobody else hears them.
+// Everyone Hears It (off to start) also gives the sound to the voice recorder, so the room hears it.
 static constexpr int kRate = 22050;
 struct SongDef { const char *name; int bpm; int wave; const float *notes; int count; };   // notes: midi, beats, midi, beats...
 static const float kSong0[] = {60,1, 60,1, 67,1, 67,1, 69,1, 69,1, 67,2, 65,1, 65,1, 64,1, 64,1, 62,1, 62,1, 60,2, 67,1, 67,1, 65,1, 65,1, 64,1, 64,1, 62,2, 67,1, 67,1, 65,1, 65,1, 64,1, 64,1, 62,2, 60,1, 60,1, 67,1, 67,1, 69,1, 69,1, 67,2, 65,1, 65,1, 64,1, 64,1, 62,1, 62,1, 60,2};
@@ -2958,6 +2988,82 @@ static void SoundShutdown() {
     A.clip.clear();
     A.ok = false;
     A.tried = false;
+}
+
+
+// ---- Everyone Hears It ----
+// With the toggle on, a sound is also handed to the game's voice recorder (Photon Voice) in place of
+// your microphone, so the room hears it. The owner OK'd soundboards everyone can hear on Discord
+// (2026-11-03). Limits: one sound every 3 seconds, 60 seconds at most, never louder than 70%.
+// Your microphone is switched off while a sound plays and comes back when it ends or you press Stop.
+static struct {
+    bool tried = false, ok = false, active = false;
+    BNM::MonoType *tRec = nullptr;
+    Method<void> setSourceType, setAudioClip, setLoopClip, restart1, restart0;
+    Method<int> getSourceType;
+    Ref rec;
+    int oldSource = 0;
+    double restoreAt = 0;
+} VC;
+static double g_nextVoice = 0;
+
+static bool VoiceInit() {
+    if (VC.ok) return true;
+    if (VC.tried) return false;
+    VC.tried = true;
+    Class rc("Photon.Voice.Unity", "Recorder");
+    if (!rc.IsValid()) return false;
+    VC.tRec = rc.GetMonoType();
+    VC.setSourceType = rc.GetMethod("set_SourceType", 1);
+    VC.getSourceType = rc.GetMethod("get_SourceType", 0);
+    VC.setAudioClip = rc.GetMethod("set_AudioClip", 1);
+    VC.setLoopClip = rc.GetMethod("set_LoopAudioClip", 1);
+    VC.restart1 = rc.GetMethod("RestartRecording", 1);
+    VC.restart0 = rc.GetMethod("RestartRecording", 0);
+    VC.ok = VC.tRec && VC.setSourceType.IsValid() && VC.setAudioClip.IsValid() && (VC.restart1.IsValid() || VC.restart0.IsValid());
+    ym::log("t3wtr4fvr: voice recorder %d (sourceType %d, clip %d, loop %d, restart %d/%d)", VC.ok, VC.setSourceType.IsValid(),
+            VC.setAudioClip.IsValid(), VC.setLoopClip.IsValid(), VC.restart1.IsValid(), VC.restart0.IsValid());
+    return VC.ok;
+}
+static Il2CppObject *VoiceRecorder() {
+    if (Alive(VC.rec.get())) return VC.rec.get();
+    if (!VC.tRec || !(G.findScene.IsValid() || G.findSceneByType.IsValid())) return nullptr;
+    auto *arr = (uint8_t *)(G.findScene.IsValid() ? G.findScene((Il2CppObject *)VC.tRec)
+                                                  : G.findSceneByType((Il2CppObject *)VC.tRec, 0));
+    size_t n = arr ? *(uintptr_t *)(arr + 0x18) : 0;
+    if (!n) return nullptr;
+    VC.rec.set(((Il2CppObject **)(arr + 0x20))[0]);
+    return VC.rec.get();
+}
+static void VoiceRestart(Il2CppObject *rec) {
+    if (VC.restart1.IsValid()) VC.restart1[rec](true);
+    else if (VC.restart0.IsValid()) VC.restart0[rec]();
+}
+static bool VoiceStart(Il2CppObject *clip, float seconds) {
+    if (!VoiceInit()) return false;
+    Il2CppObject *rec = VoiceRecorder();
+    if (!rec) return false;
+    if (!VC.active) VC.oldSource = VC.getSourceType.IsValid() ? VC.getSourceType[rec]() : 0;   // usually 0, the microphone
+    VC.setAudioClip[rec](clip);
+    if (VC.setLoopClip.IsValid()) VC.setLoopClip[rec](f_soundLoop);
+    VC.setSourceType[rec](1);                           // 1 = play an audio clip instead of the microphone
+    VoiceRestart(rec);
+    VC.active = true;
+    VC.restoreAt = f_soundLoop ? 0.0 : g_time + seconds + 0.5;
+    return true;
+}
+static void VoiceStop() {
+    if (!VC.active) return;
+    VC.active = false;
+    VC.restoreAt = 0;
+    Il2CppObject *rec = VC.rec.get();
+    if (!Alive(rec) || !VC.ok) return;
+    if (VC.setLoopClip.IsValid()) VC.setLoopClip[rec](false);
+    VC.setSourceType[rec](VC.oldSource);                // your microphone again
+    VoiceRestart(rec);
+}
+static void VoiceTick() {
+    if (VC.active && VC.restoreAt > 0 && g_time >= VC.restoreAt) VoiceStop();
 }
 
 static float NoteHz(float midi) { return 440.0f * powf(2.0f, (midi - 69.0f) / 12.0f); }
@@ -3106,6 +3212,7 @@ static void UpdateSoundLabel() {
     snprintf(g_playLabel, sizeof g_playLabel, "Play %d/%d: %s", g_soundIdx + 1, kSoundCount, kSoundNames[g_soundIdx]);
     g_dirty = true;
 }
+static void PlaySamples(const std::vector<float> &samples, int rate, const char *name);
 static void PlayIdx(int idx) {
     try {
         if (!AudioInit()) { Notify("Sound isn't available in this game"); return; }
@@ -3113,18 +3220,7 @@ static void PlayIdx(int idx) {
         if (idx == 22) SynthMySong(samples);
         else if (idx < 8) SynthSong(idx, samples);
         else SynthEffect(idx - 8, samples);
-        if (samples.empty()) return;
-        Il2CppObject *clip = A.clipCreate(CreateMonoString("T3Clip"), (int)samples.size(), 1, kRate, false);
-        if (!clip) { Notify("Couldn't make the sound"); return; }
-        auto *arr = BNM::Structures::Mono::Array<float>::Create(samples);
-        A.clipSetData[clip](arr, 0);
-        A.clip.set(clip);
-        Il2CppObject *src = A.src.get();
-        A.srcSetClip[src](clip);
-        A.srcSetLoop[src](f_soundLoop);
-        A.srcSetVolume[src](g_soundVol);
-        A.srcPlay[src]();
-        Notify("Playing %s", kSoundNames[idx]);
+        PlaySamples(samples, kRate, kSoundNames[idx]);
     } catch (...) {
         Notify("Couldn't play the sound");
     }
@@ -3133,9 +3229,11 @@ static void PlaySelected() { PlayIdx(g_soundIdx); }
 static void NextSong() { g_soundIdx = (g_soundIdx + 1) % kSoundCount; UpdateSoundLabel(); }
 static void PrevSong() { g_soundIdx = (g_soundIdx + kSoundCount - 1) % kSoundCount; UpdateSoundLabel(); }
 static void StopSound() {
+    VoiceStop();
     if (A.ok && Alive(A.src.get())) A.srcStop[A.src.get()]();
     Notify("Stopped");
 }
+static void ApplyShare() { if (!f_shareVoice) VoiceStop(); }
 static void ApplyLoop() { if (A.ok && Alive(A.src.get())) A.srcSetLoop[A.src.get()](f_soundLoop); }
 static void ApplyVolume() {
     if (A.ok && Alive(A.src.get())) A.srcSetVolume[A.src.get()](g_soundVol);
@@ -3144,6 +3242,162 @@ static void ApplyVolume() {
 static void VolUp() { g_soundVol = fminf(1.0f, g_soundVol + 0.1f); ApplyVolume(); }
 static void VolDown() { g_soundVol = fmaxf(0.1f, g_soundVol - 0.1f); ApplyVolume(); }
 static void RandomSound() { g_soundIdx = (int)(g_time * 1000.0) % kSoundCount; UpdateSoundLabel(); PlayIdx(g_soundIdx); }
+
+// ---- My WAVs: your own .wav files, played on your own headset only ----
+// Put .wav files in Android/data/com.TrassGames.Yeeps/files/sounds/ (next to the mods folder).
+// The file is read, turned into samples and played by the same local AudioSource as the Soundboard.
+// Everyone Hears It works here too. 16-bit, 8-bit, 24-bit and float WAVs work.
+static const char *kWavDir = "/storage/emulated/0/Android/data/com.TrassGames.Yeeps/files/sounds/";
+static std::vector<std::string> g_wavs;
+static int g_wavIdx = 0;
+static const size_t kMaxWavSamples = 8000000;      // about 6 minutes at 22 kHz
+
+static void PlaySamples(const std::vector<float> &samples, int rate, const char *name) {
+    if (!AudioInit()) { Notify("Sound isn't available in this game"); return; }
+    if (samples.empty()) { Notify("That file is empty"); return; }
+    const std::vector<float> *use = &samples;
+    std::vector<float> limited;
+    bool share = f_shareVoice;
+    if (share) {
+        if (g_time < g_nextVoice) { Notify("Wait a moment"); return; }          // one sound every 3 seconds for the room
+        float peak = 0;
+        for (float v : samples) peak = fmaxf(peak, fabsf(v));
+        float gain = peak > 0.7f ? 0.7f / peak : 1.0f;                           // never louder than 70% for the room
+        size_t maxN = (size_t)(60 * rate);                                       // 60 seconds at most for the room
+        size_t n = samples.size() < maxN ? samples.size() : maxN;
+        limited.assign(samples.begin(), samples.begin() + n);
+        if (gain < 1.0f) for (auto &v : limited) v *= gain;
+        use = &limited;
+    }
+    Il2CppObject *clip = A.clipCreate(CreateMonoString("T3Clip"), (int)use->size(), 1, rate, false);
+    if (!clip) { Notify("Couldn't make the sound"); return; }
+    auto *arr = BNM::Structures::Mono::Array<float>::Create(*use);
+    A.clipSetData[clip](arr, 0);
+    A.clip.set(clip);
+    Il2CppObject *src = A.src.get();
+    A.srcSetClip[src](clip);
+    A.srcSetLoop[src](f_soundLoop);
+    A.srcSetVolume[src](share && !f_hearSelf ? 0.0f : g_soundVol);              // Hear It Yourself off: only the room hears it
+    A.srcPlay[src]();
+    if (share) {
+        if (VoiceStart(clip, (float)use->size() / rate)) {
+            g_nextVoice = g_time + 3.0;
+            Notify("Everyone hears: %s", name);
+            return;
+        }
+        Notify("Voice chat isn't available, so only you hear it");
+        return;
+    }
+    Notify("Playing %s", name);
+}
+static void UpdateWavLabel() {
+    if (g_wavs.empty()) { snprintf(g_wavLabel, sizeof g_wavLabel, "Play WAV: none found"); g_dirty = true; return; }
+    std::string stem = g_wavs[g_wavIdx];
+    if (stem.size() > 4) stem.resize(stem.size() - 4);                  // drop ".wav"
+    snprintf(g_wavLabel, sizeof g_wavLabel, "Play %d/%d: %.28s", g_wavIdx + 1, (int)g_wavs.size(), stem.c_str());
+    g_dirty = true;
+}
+static void WavScan() {
+    g_wavs.clear();
+    if (DIR *d = opendir(kWavDir)) {
+        while (dirent *e = readdir(d)) {
+            std::string n = e->d_name;
+            if (n.size() > 4 && strcasecmp(n.c_str() + n.size() - 4, ".wav") == 0) g_wavs.push_back(n);
+        }
+        closedir(d);
+    }
+    std::sort(g_wavs.begin(), g_wavs.end());
+    if (g_wavIdx >= (int)g_wavs.size()) g_wavIdx = 0;
+    UpdateWavLabel();
+    if (g_wavs.empty()) Notify("No .wav files in the sounds folder");
+    else Notify("%d .wav files found", (int)g_wavs.size());
+}
+// Reads a PCM or float WAV into mono samples. Loud-rate files (32 kHz and up) are halved to save memory.
+static bool LoadWav(const std::string &path, std::vector<float> &out, int &rate) {
+    FILE *f = fopen(path.c_str(), "rb");
+    if (!f) return false;
+    char hdr[12];
+    if (fread(hdr, 1, 12, f) != 12 || memcmp(hdr, "RIFF", 4) != 0 || memcmp(hdr + 8, "WAVE", 4) != 0) { fclose(f); return false; }
+    int tag = 0, ch = 0, bits = 0;
+    uint32_t dataLen = 0;
+    bool haveData = false;
+    rate = 0;
+    for (int chunk = 0; chunk < 64; chunk++) {              // look through the first 64 chunks for fmt and data
+        char id[4];
+        uint32_t sz = 0;
+        if (fread(id, 1, 4, f) != 4 || fread(&sz, 4, 1, f) != 1) break;
+        if (memcmp(id, "fmt ", 4) == 0) {
+            uint8_t b[16] = {0};
+            size_t n = sz < 16 ? sz : 16;
+            if (fread(b, 1, n, f) != n) break;
+            tag = b[0] | (b[1] << 8);
+            ch = b[2] | (b[3] << 8);
+            rate = b[4] | (b[5] << 8) | (b[6] << 16) | (b[7] << 24);
+            bits = b[14] | (b[15] << 8);
+            fseek(f, (long)(sz - n) + (long)(sz & 1), SEEK_CUR);
+        } else if (memcmp(id, "data", 4) == 0) {
+            dataLen = sz;
+            haveData = true;
+            break;
+        } else {
+            fseek(f, (long)sz + (long)(sz & 1), SEEK_CUR);
+        }
+    }
+    bool floatData = (tag == 3 && bits == 32);
+    bool pcm = (tag == 1 || tag == 0xFFFE) && (bits == 8 || bits == 16 || bits == 24);
+    if (!haveData || ch < 1 || ch > 8 || rate < 4000 || (!pcm && !floatData)) { fclose(f); return false; }
+    int bps = bits / 8, frameSize = ch * bps;
+    int decimate = rate >= 32000 ? 2 : 1;
+    long remaining = (long)(dataLen / frameSize);
+    std::vector<uint8_t> buf((size_t)frameSize * 4096);
+    float acc = 0;
+    int accN = 0;
+    while (remaining > 0 && out.size() < kMaxWavSamples) {
+        size_t want = remaining < 4096 ? (size_t)remaining : 4096;
+        size_t got = fread(buf.data(), (size_t)frameSize, want, f);
+        if (got == 0) break;
+        for (size_t i = 0; i < got; i++) {
+            float m = 0;
+            for (int c = 0; c < ch; c++) {
+                const uint8_t *q = buf.data() + i * (size_t)frameSize + (size_t)c * bps;
+                float v;
+                if (floatData) { float x; memcpy(&x, q, 4); v = x; }
+                else if (bits == 16) v = (int16_t)(q[0] | (q[1] << 8)) / 32768.0f;
+                else if (bits == 24) v = (int32_t)((uint32_t)q[0] << 8 | (uint32_t)q[1] << 16 | (uint32_t)q[2] << 24) / 2147483648.0f;
+                else v = ((int)q[0] - 128) / 128.0f;
+                m += v;
+            }
+            acc += m / ch;
+            if (++accN == decimate) { out.push_back(acc / accN); acc = 0; accN = 0; }
+        }
+        remaining -= (long)got;
+    }
+    fclose(f);
+    rate /= decimate;
+    return !out.empty();
+}
+static void WavPlay() {
+    try {
+        if (g_wavs.empty()) WavScan();
+        if (g_wavs.empty()) return;
+        std::vector<float> samples;
+        int rate = 22050;
+        if (!LoadWav(std::string(kWavDir) + g_wavs[g_wavIdx], samples, rate)) { Notify("Couldn't read that WAV (try 16-bit PCM)"); return; }
+        PlaySamples(samples, rate, g_wavs[g_wavIdx].c_str());
+    } catch (...) {
+        Notify("Couldn't play that WAV");
+    }
+}
+static void WavNext() {
+    if (g_wavs.empty()) { WavScan(); return; }
+    g_wavIdx = (g_wavIdx + 1) % (int)g_wavs.size();
+    UpdateWavLabel();
+}
+static void WavPrev() {
+    if (g_wavs.empty()) { WavScan(); return; }
+    g_wavIdx = (g_wavIdx + (int)g_wavs.size() - 1) % (int)g_wavs.size();
+    UpdateWavLabel();
+}
 static void BorderStyle0() { g_borderStyle = 0; g_dirty = true; Notify("Border: Off"); }
 static void BorderStyle1() { g_borderStyle = 1; g_dirty = true; Notify("Border: Stripes"); }
 static void BorderStyle2() { g_borderStyle = 2; g_dirty = true; Notify("Border: Solid"); }
@@ -3598,6 +3852,8 @@ static void SpawnOnHandTick(const Buttons &in) {
 
 static void OnRoomChange() {
     ClearDecor();
+    VoiceStop();
+    VC.rec.clear();
     SoundShutdown();
     // The old room's objects are gone (or about to be): forget them, build again.
     for (int r = 0; r < kRows; r++) { g_rowCube[r].clear(); g_rowLabel[r].clear(); g_rowText[r].clear(); }
@@ -3661,6 +3917,7 @@ static void OnUpdate(float dt) {
     TeleportGunTick(in);
     try { SpawnOnHandTick(in); ItemQueueTick(); }
     catch (...) { g_itemQueue.clear(); ym::log("starter-menu: item code error"); }
+    try { VoiceTick(); } catch (...) {}
     DanceTick(in, dt);              // last: it moves your hands after everything else
 }
 
