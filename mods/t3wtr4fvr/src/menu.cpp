@@ -345,7 +345,9 @@ static bool g_haveSpot2 = false;
 static float g_menuSize = 1.0f;
 static constexpr int kSoundCount = 23;
 static char g_playLabel[64] = "Play 1/22: Twinkle Star";       // the Soundboard's Play button shows the picked sound
-static char g_wavLabel[64] = "Play WAV: press Refresh Files";   // the My WAVs page shows the picked file here
+static char g_wavLabel[64] = "Play WAV: press Refresh Files";
+static char g_textLabel[64] = "Text: (empty)";                      // the Item Text page shows what you typed here
+static char g_textSpawnLabel[64] = "Spawn Next Line (0/0)";   // the My WAVs page shows the picked file here
 static bool f_soundLoop = false;
 static bool f_shareVoice = false, f_hearSelf = true;        // Everyone Hears It (off to start) and Hear It Yourself
 static int g_soundIdx = 0;
@@ -436,6 +438,49 @@ static void WavPlay();
 static void WavNext();
 static void WavPrev();
 static void WavScan();
+static void TextShow();
+static void TextSpawnNext();
+static void TextRestart();
+static void TextBack();
+static void TextSpace();
+static void TextClear();
+static void TextPreset();
+static void KeyA();
+static void KeyB();
+static void KeyC();
+static void KeyD();
+static void KeyE();
+static void KeyF();
+static void KeyG();
+static void KeyH();
+static void KeyI();
+static void KeyJ();
+static void KeyK();
+static void KeyL();
+static void KeyM();
+static void KeyN();
+static void KeyO();
+static void KeyP();
+static void KeyQ();
+static void KeyR();
+static void KeyS();
+static void KeyT();
+static void KeyU();
+static void KeyV();
+static void KeyW();
+static void KeyX();
+static void KeyY();
+static void KeyZ();
+static void Key0();
+static void Key1();
+static void Key2();
+static void Key3();
+static void Key4();
+static void Key5();
+static void Key6();
+static void Key7();
+static void Key8();
+static void Key9();
 static void BorderStyle0();
 static void BorderStyle1();
 static void BorderStyle2();
@@ -679,9 +724,9 @@ static void SizeSet9();
 static bool GetVel(Vector3 &v);
 static bool BodyPos(Vector3 &out);
 
-enum Cat { MAIN, MOVEMENT, RIG, ITEMS, SETTINGS, ENABLED, POSES2, SHAPES, SPEED, GRAVITY, THEMES, SIZES, ITEMMULT, DECOR, SOUNDS, WAVS, NCAT };
+enum Cat { MAIN, MOVEMENT, RIG, ITEMS, SETTINGS, ENABLED, POSES2, SHAPES, SPEED, GRAVITY, THEMES, SIZES, ITEMMULT, DECOR, SOUNDS, WAVS, ITEMTEXT, NCAT };
 static const char *kCatName[NCAT] = {"Main", "Movement Mods", "Rig Mods", "Items", "Settings", "Enabled Mods",
-                                     "Pose Pack", "Item Shapes", "Speed Levels", "Gravity Levels", "Themes", "Menu Sizes", "Item Multiplier", "Decorations", "Soundboard", "My WAVs"};
+                                     "Pose Pack", "Item Shapes", "Speed Levels", "Gravity Levels", "Themes", "Menu Sizes", "Item Multiplier", "Decorations", "Soundboard", "My WAVs", "Item Text"};
 enum Kind { OPEN, TOGGLE, ACTION };
 struct Item {
     Cat cat;
@@ -707,6 +752,7 @@ static Item g_items[] = {
     {MAIN, "Soundboard", OPEN, SOUNDS},
     {MAIN, "Decorations", OPEN, DECOR},
     {MAIN, "My WAVs", OPEN, WAVS},
+    {MAIN, "Item Text", OPEN, ITEMTEXT},
     {MAIN, "Enabled Mods", OPEN, ENABLED},
 
     {MOVEMENT, "Exit Movement Mods", OPEN, MAIN},
@@ -1198,6 +1244,50 @@ static Item g_items[] = {
     {WAVS, "Hear It Yourself", TOGGLE, MAIN, &f_hearSelf},
     {WAVS, "Volume Up", ACTION, MAIN, nullptr, VolUp},
     {WAVS, "Volume Down", ACTION, MAIN, nullptr, VolDown},
+    {ITEMTEXT, "Exit Item Text", OPEN, MAIN},
+    {ITEMTEXT, g_textLabel, ACTION, MAIN, nullptr, TextShow},
+    {ITEMTEXT, g_textSpawnLabel, ACTION, MAIN, nullptr, TextSpawnNext},
+    {ITEMTEXT, "Restart Text", ACTION, MAIN, nullptr, TextRestart},
+    {ITEMTEXT, "Backspace", ACTION, MAIN, nullptr, TextBack},
+    {ITEMTEXT, "Space", ACTION, MAIN, nullptr, TextSpace},
+    {ITEMTEXT, "Clear Text", ACTION, MAIN, nullptr, TextClear},
+    {ITEMTEXT, "Preset: HEARTVRONTOP IS A W", ACTION, MAIN, nullptr, TextPreset},
+    {ITEMTEXT, "A", ACTION, MAIN, nullptr, KeyA},
+    {ITEMTEXT, "B", ACTION, MAIN, nullptr, KeyB},
+    {ITEMTEXT, "C", ACTION, MAIN, nullptr, KeyC},
+    {ITEMTEXT, "D", ACTION, MAIN, nullptr, KeyD},
+    {ITEMTEXT, "E", ACTION, MAIN, nullptr, KeyE},
+    {ITEMTEXT, "F", ACTION, MAIN, nullptr, KeyF},
+    {ITEMTEXT, "G", ACTION, MAIN, nullptr, KeyG},
+    {ITEMTEXT, "H", ACTION, MAIN, nullptr, KeyH},
+    {ITEMTEXT, "I", ACTION, MAIN, nullptr, KeyI},
+    {ITEMTEXT, "J", ACTION, MAIN, nullptr, KeyJ},
+    {ITEMTEXT, "K", ACTION, MAIN, nullptr, KeyK},
+    {ITEMTEXT, "L", ACTION, MAIN, nullptr, KeyL},
+    {ITEMTEXT, "M", ACTION, MAIN, nullptr, KeyM},
+    {ITEMTEXT, "N", ACTION, MAIN, nullptr, KeyN},
+    {ITEMTEXT, "O", ACTION, MAIN, nullptr, KeyO},
+    {ITEMTEXT, "P", ACTION, MAIN, nullptr, KeyP},
+    {ITEMTEXT, "Q", ACTION, MAIN, nullptr, KeyQ},
+    {ITEMTEXT, "R", ACTION, MAIN, nullptr, KeyR},
+    {ITEMTEXT, "S", ACTION, MAIN, nullptr, KeyS},
+    {ITEMTEXT, "T", ACTION, MAIN, nullptr, KeyT},
+    {ITEMTEXT, "U", ACTION, MAIN, nullptr, KeyU},
+    {ITEMTEXT, "V", ACTION, MAIN, nullptr, KeyV},
+    {ITEMTEXT, "W", ACTION, MAIN, nullptr, KeyW},
+    {ITEMTEXT, "X", ACTION, MAIN, nullptr, KeyX},
+    {ITEMTEXT, "Y", ACTION, MAIN, nullptr, KeyY},
+    {ITEMTEXT, "Z", ACTION, MAIN, nullptr, KeyZ},
+    {ITEMTEXT, "0", ACTION, MAIN, nullptr, Key0},
+    {ITEMTEXT, "1", ACTION, MAIN, nullptr, Key1},
+    {ITEMTEXT, "2", ACTION, MAIN, nullptr, Key2},
+    {ITEMTEXT, "3", ACTION, MAIN, nullptr, Key3},
+    {ITEMTEXT, "4", ACTION, MAIN, nullptr, Key4},
+    {ITEMTEXT, "5", ACTION, MAIN, nullptr, Key5},
+    {ITEMTEXT, "6", ACTION, MAIN, nullptr, Key6},
+    {ITEMTEXT, "7", ACTION, MAIN, nullptr, Key7},
+    {ITEMTEXT, "8", ACTION, MAIN, nullptr, Key8},
+    {ITEMTEXT, "9", ACTION, MAIN, nullptr, Key9},
     {SETTINGS, "Exit Settings", OPEN, MAIN},
     {SETTINGS, "Change Pointer Position", ACTION, MAIN, nullptr, NextPointer},
     {SETTINGS, "Iron Man Speed", ACTION, MAIN, nullptr, NextIronSpeed},
@@ -1322,6 +1412,8 @@ static const struct { const char *label, *tip; } kTips[] = {
     {"Refresh Files", "Looks again in the sounds folder for .wav files."},
     {"Next WAV", "Picks the next .wav file."},
     {"Previous WAV", "Picks the previous .wav file."},
+    {"Item Text", "Type a word on the keyboard, then spell it with your left-hand item. One line per press."},
+    {"Restart Text", "Start the word again from its first line."},
     {"Spawn On Hand", "Each right trigger spawns the item from your left hand at your right hand."},
     {"Wave", "Waves one hand, the other on your hip. Hold left trigger."},
     {"Helicopter", "Both arms spin around you. Hold left trigger."},
@@ -3398,6 +3490,166 @@ static void WavPrev() {
     g_wavIdx = (g_wavIdx + (int)g_wavs.size() - 1) % (int)g_wavs.size();
     UpdateWavLabel();
 }
+
+// ---- Item Text: type a word, then spell it with items ----
+// A 3x5 dot font. The word is split into lines of at most 27 items (the batch limit). Each press of
+// "Spawn Next Line" spawns one line of the word, using the item in your left hand, in front of you
+// and flat on the ground. The first line is the farthest, so the word reads from where you stand.
+// One batch every 3 seconds, like every other shape. Nothing spawns by itself.
+static const char *kGlyph[36][5] = {
+    {"010", "101", "111", "101", "101"},  // A
+    {"110", "101", "110", "101", "110"},  // B
+    {"011", "100", "100", "100", "011"},  // C
+    {"110", "101", "101", "101", "110"},  // D
+    {"111", "100", "110", "100", "111"},  // E
+    {"111", "100", "110", "100", "100"},  // F
+    {"011", "100", "101", "101", "011"},  // G
+    {"101", "101", "111", "101", "101"},  // H
+    {"111", "010", "010", "010", "111"},  // I
+    {"001", "001", "001", "101", "010"},  // J
+    {"101", "101", "110", "101", "101"},  // K
+    {"100", "100", "100", "100", "111"},  // L
+    {"101", "111", "111", "101", "101"},  // M
+    {"110", "101", "101", "101", "101"},  // N
+    {"010", "101", "101", "101", "010"},  // O
+    {"110", "101", "110", "100", "100"},  // P
+    {"010", "101", "101", "110", "011"},  // Q
+    {"110", "101", "110", "101", "101"},  // R
+    {"011", "100", "010", "001", "110"},  // S
+    {"111", "010", "010", "010", "010"},  // T
+    {"101", "101", "101", "101", "111"},  // U
+    {"101", "101", "101", "101", "010"},  // V
+    {"101", "101", "111", "111", "101"},  // W
+    {"101", "101", "010", "101", "101"},  // X
+    {"101", "101", "010", "010", "010"},  // Y
+    {"111", "001", "010", "100", "111"},  // Z
+    {"111", "101", "101", "101", "111"},  // 0
+    {"010", "110", "010", "010", "111"},  // 1
+    {"110", "001", "010", "100", "111"},  // 2
+    {"110", "001", "010", "001", "110"},  // 3
+    {"101", "101", "111", "001", "001"},  // 4
+    {"111", "100", "110", "001", "110"},  // 5
+    {"011", "100", "111", "101", "111"},  // 6
+    {"111", "001", "010", "010", "010"},  // 7
+    {"111", "101", "111", "101", "111"},  // 8
+    {"111", "101", "111", "001", "110"},  // 9
+};
+static std::string g_text;
+static int g_textNext = 0;                         // the next line to spawn
+static constexpr size_t kMaxText = 20;
+
+static int GlyphIndex(char c) {
+    if (c >= 'A' && c <= 'Z') return c - 'A';
+    if (c >= '0' && c <= '9') return 26 + (c - '0');
+    return -1;
+}
+static int GlyphCount(char c) {
+    int gi = GlyphIndex(c), n = 0;
+    if (gi < 0) return 0;
+    for (int row = 0; row < 5; row++)
+        for (int col = 0; col < 3; col++)
+            if (kGlyph[gi][row][col] == '1') n++;
+    return n;
+}
+static void SplitText(std::vector<std::string> &lines) {
+    lines.clear();
+    std::string cur;
+    int items = 0;
+    for (char c : g_text) {
+        if (cur.empty() && c == ' ') continue;                          // no spaces at the start of a line
+        int n = GlyphCount(c);
+        if (items + n > 27 && !cur.empty()) { lines.push_back(cur); cur.clear(); items = 0; if (c == ' ') continue; }
+        cur += c;
+        items += n;
+    }
+    while (!cur.empty() && cur.back() == ' ') cur.pop_back();
+    if (!cur.empty()) lines.push_back(cur);
+}
+static void UpdateTextLabels() {
+    std::string shown = g_text.empty() ? std::string("(empty)") : g_text;
+    if (shown.size() > 22) shown = shown.substr(shown.size() - 22);
+    snprintf(g_textLabel, sizeof g_textLabel, "Text: %s", shown.c_str());
+    std::vector<std::string> lines;
+    SplitText(lines);
+    snprintf(g_textSpawnLabel, sizeof g_textSpawnLabel, "Spawn Next Line (%d/%d)", std::min(g_textNext, (int)lines.size()), (int)lines.size());
+    g_dirty = true;
+}
+static void TextAdd(char c) {
+    if (g_text.size() >= kMaxText) { Notify("%d characters at most", (int)kMaxText); return; }
+    g_text += c;
+    g_textNext = 0;
+    UpdateTextLabels();
+}
+static void TextShow() { Notify("Your text: %s", g_text.empty() ? "(empty)" : g_text.c_str()); }
+static void TextSpace() { TextAdd(' '); }
+static void TextBack() { if (!g_text.empty()) g_text.pop_back(); g_textNext = 0; UpdateTextLabels(); }
+static void TextClear() { g_text.clear(); g_textNext = 0; UpdateTextLabels(); }
+static void TextRestart() { g_textNext = 0; UpdateTextLabels(); Notify("Starting over"); }
+static void TextPreset() { g_text = "HEARTVRONTOP IS A W"; g_textNext = 0; UpdateTextLabels(); }
+static void TextSpawnNext() {
+    std::vector<std::string> lines;
+    SplitText(lines);
+    if (lines.empty()) { Notify("Type something first"); return; }
+    if (g_textNext >= (int)lines.size()) { Notify("All lines spawned. Press Restart Text to go again"); return; }
+    Il2CppObject *head = g_head.get();
+    if (!head) return;
+    if (g_time < g_nextBatch) { Notify("Wait a moment"); return; }          // one batch every 3 seconds
+    if (!LeftHandItem()) return;
+    const std::string &line = lines[g_textNext];
+    const float dot = 0.22f;
+    int cols = (int)line.size() * 4 - 1;
+    Vector3 f = Flat(G.trGetForward[head]()), r = Cross(Vector3(0, 1, 0), f);
+    float farthest = 2.5f + ((int)lines.size() - 1) * 1.6f, dist = farthest - g_textNext * 1.6f;   // the first line is the farthest
+    Vector3 base = G.trGetPosition[head]() + f * dist + Vector3(0, -0.4f, 0);
+    std::vector<PendingItem> list;
+    for (size_t k = 0; k < line.size(); k++) {
+        int gi = GlyphIndex(line[k]);
+        if (gi < 0) continue;
+        for (int row = 0; row < 5; row++)
+            for (int col = 0; col < 3; col++)
+                if (kGlyph[gi][row][col] == '1')
+                    list.push_back({base + r * ((((int)k * 4 + col) - cols * 0.5f) * dot) + f * ((4 - row) * dot), Vector3(0, 0, 0)});
+    }
+    QueueItems(list);
+    g_textNext++;
+    UpdateTextLabels();
+}
+static void KeyA() { TextAdd('A'); }
+static void KeyB() { TextAdd('B'); }
+static void KeyC() { TextAdd('C'); }
+static void KeyD() { TextAdd('D'); }
+static void KeyE() { TextAdd('E'); }
+static void KeyF() { TextAdd('F'); }
+static void KeyG() { TextAdd('G'); }
+static void KeyH() { TextAdd('H'); }
+static void KeyI() { TextAdd('I'); }
+static void KeyJ() { TextAdd('J'); }
+static void KeyK() { TextAdd('K'); }
+static void KeyL() { TextAdd('L'); }
+static void KeyM() { TextAdd('M'); }
+static void KeyN() { TextAdd('N'); }
+static void KeyO() { TextAdd('O'); }
+static void KeyP() { TextAdd('P'); }
+static void KeyQ() { TextAdd('Q'); }
+static void KeyR() { TextAdd('R'); }
+static void KeyS() { TextAdd('S'); }
+static void KeyT() { TextAdd('T'); }
+static void KeyU() { TextAdd('U'); }
+static void KeyV() { TextAdd('V'); }
+static void KeyW() { TextAdd('W'); }
+static void KeyX() { TextAdd('X'); }
+static void KeyY() { TextAdd('Y'); }
+static void KeyZ() { TextAdd('Z'); }
+static void Key0() { TextAdd('0'); }
+static void Key1() { TextAdd('1'); }
+static void Key2() { TextAdd('2'); }
+static void Key3() { TextAdd('3'); }
+static void Key4() { TextAdd('4'); }
+static void Key5() { TextAdd('5'); }
+static void Key6() { TextAdd('6'); }
+static void Key7() { TextAdd('7'); }
+static void Key8() { TextAdd('8'); }
+static void Key9() { TextAdd('9'); }
 static void BorderStyle0() { g_borderStyle = 0; g_dirty = true; Notify("Border: Off"); }
 static void BorderStyle1() { g_borderStyle = 1; g_dirty = true; Notify("Border: Stripes"); }
 static void BorderStyle2() { g_borderStyle = 2; g_dirty = true; Notify("Border: Solid"); }
